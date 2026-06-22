@@ -62,6 +62,7 @@ public class Payment {
 
     public Long getId() { return id; }
     public Long getOrderId() { return orderId; }
+    public String getMethod() { return method; }
     public String getStatus() { return status; }
     public void setStatus(Status status) { this.status = status.name(); }
     public void markPaid(String gatewayPaymentId, String statusCode) {

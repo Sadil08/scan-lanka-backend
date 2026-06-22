@@ -98,6 +98,13 @@
             <version>1.7.1</version>
         </dependency>
 
+        <!-- HTML→PDF receipts (09 FR-18 / T-21 — escaped server-built HTML only) -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

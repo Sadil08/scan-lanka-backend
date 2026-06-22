@@ -5,6 +5,7 @@ import com.scanlanka.auth.domain.OneTimeCode.Purpose;
 import com.scanlanka.auth.domain.Role;
 import com.scanlanka.auth.domain.UserStatus;
 import com.scanlanka.auth.infra.AppUserRepository;
+import com.scanlanka.notification.app.EmailTemplateRenderer;
 import com.scanlanka.notification.app.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,10 +30,11 @@ public class AuthService {
     private final OneTimeCodeService otp;
     private final TotpService totp;
     private final NotificationService notifications;
+    private final EmailTemplateRenderer emailTemplates;
 
     public AuthService(AppUserRepository users, PasswordEncoder encoder, JwtService jwt,
                        RefreshTokenService refreshTokens, OneTimeCodeService otp, TotpService totp,
-                       NotificationService notifications) {
+                       NotificationService notifications, EmailTemplateRenderer emailTemplates) {
         this.users = users;
         this.encoder = encoder;
         this.jwt = jwt;
@@ -40,6 +42,7 @@ public class AuthService {
         this.otp = otp;
         this.totp = totp;
         this.notifications = notifications;
+        this.emailTemplates = emailTemplates;
     }
 
     public record Tokens(String accessToken, String refreshToken) {}
@@ -52,8 +55,9 @@ public class AuthService {
         if (!users.existsByEmailIgnoreCase(email)) {
             AppUser u = users.save(new AppUser(email.toLowerCase(), encoder.encode(rawPassword), name, Role.CUSTOMER));
             String code = otp.issue(u.getId(), Purpose.EMAIL_VERIFY);
-            notifications.enqueue("EMAIL_VERIFY", u.getEmail(), "Verify your Scan Lanka email",
-                "Your verification code is: " + code, "verify:" + u.getId() + ":" + code);
+            var email = emailTemplates.emailVerify(name, code);
+            notifications.enqueue("EMAIL_VERIFY", u.getEmail(), email.subject(), email.body(),
+                "verify:" + u.getId() + ":" + System.nanoTime());
         }
         // else: do nothing, but respond identically (no enumeration oracle)
     }
@@ -114,8 +118,9 @@ public class AuthService {
     public void forgotPassword(String email) {
         users.findByEmailIgnoreCase(email).ifPresent(u -> {
             String code = otp.issue(u.getId(), Purpose.PASSWORD_RESET);
-            notifications.enqueue("PASSWORD_RESET", u.getEmail(), "Reset your Scan Lanka password",
-                "Your password reset code is: " + code, "reset:" + u.getId() + ":" + code);
+            var email = emailTemplates.passwordReset(code);
+            notifications.enqueue("PASSWORD_RESET", u.getEmail(), email.subject(), email.body(),
+                "reset:" + u.getId() + ":" + System.nanoTime());
         });
     }
 

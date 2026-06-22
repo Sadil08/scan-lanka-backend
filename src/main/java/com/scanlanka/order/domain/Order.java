@@ -110,6 +110,13 @@ public class Order {
     public String getShipCity() { return shipCity; }
     public String getShipProvince() { return shipProvince; }
     public String getShipPostalCode() { return shipPostalCode; }
+    public String getBillName() { return billName; }
+    public String getBillTaxId() { return billTaxId; }
+    public String getBillStreet() { return billStreet; }
+    public String getBillCity() { return billCity; }
+    public String getBillProvince() { return billProvince; }
+    public String getBillPostalCode() { return billPostalCode; }
+    public String getContactPhone() { return contactPhone; }
 
     public void setGuestEmail(String v) { this.guestEmail = v; }
     public void setContact(String name, String phone, String email) {

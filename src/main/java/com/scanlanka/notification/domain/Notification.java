@@ -62,6 +62,19 @@ public class Notification {
     public String getSubject() { return subject; }
     public String getBody() { return body; }
     public String getStatus() { return status; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public String getLastError() { return lastError; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getSentAt() { return sentAt; }
+
+    public void resetForRetry() {
+        this.status = Status.PENDING.name();
+        this.attempts = 0;
+        this.lastError = null;
+        this.nextAttemptAt = Instant.now();
+        this.sentAt = null;
+    }
+
     public int getAttempts() { return attempts; }
 
     public void markSent() {

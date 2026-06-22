@@ -55,6 +55,7 @@ app:
   notifications:
     admin-email: ${ADMIN_NOTIFY_EMAIL:orders@scanlanka.com}   # dispatch summaries go here
     poll-ms: 15000
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   order:
     # Order-number signing secret — override by env in every real environment (global/02 §5).
     signing-secret: ${ORDER_SIGNING_SECRET:dev-only-order-signing-secret-change-me}

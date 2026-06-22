@@ -49,6 +49,11 @@ public class AdminOrderController {
         return admin.dispatchSummary(orderNumber);
     }
 
+    @GetMapping("/{orderNumber}/receipt.pdf")
+    public org.springframework.http.ResponseEntity<byte[]> receiptPdf(@PathVariable String orderNumber) {
+        return admin.receiptPdf(orderNumber);
+    }
+
     @GetMapping("/dashboard")
     public AdminOrderService.DashboardCounts dashboard() {
         return admin.dashboardCounts();

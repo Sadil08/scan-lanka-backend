@@ -1,6 +1,7 @@
 package com.scanlanka.order.app;
 
 import com.scanlanka.admin.app.AuditService;
+import com.scanlanka.order.app.receipt.ReceiptService;
 import com.scanlanka.order.domain.Order;
 import com.scanlanka.order.domain.OrderItem;
 import com.scanlanka.order.domain.OrderStatus;
@@ -9,7 +10,10 @@ import com.scanlanka.order.infra.OrderItemRepository;
 import com.scanlanka.order.infra.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,13 +28,15 @@ public class AdminOrderService {
     private final OrderItemRepository items;
     private final OrderService orderService;
     private final AuditService audit;
+    private final ReceiptService receipts;
 
     public AdminOrderService(OrderRepository orders, OrderItemRepository items,
-                             OrderService orderService, AuditService audit) {
+                             OrderService orderService, AuditService audit, ReceiptService receipts) {
         this.orders = orders;
         this.items = items;
         this.orderService = orderService;
         this.audit = audit;
+        this.receipts = receipts;
     }
 
     public record OrderSummary(String orderNumber, String status, long totalCents,
@@ -99,6 +105,17 @@ public class AdminOrderService {
                 i.getHandlingClassSnapshot())).toList();
         return new DispatchSummary(o.getOrderNumber(), o.getFulfilmentType().name(),
             o.getDeliveryPayment().name(), ship(o), o.getTotalCents(), o.getDeliveryCodCents(), lines);
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> receiptPdf(String orderNumber) {
+        Order o = load(orderNumber);
+        byte[] pdf = receipts.ensurePdf(o, items.findByOrderId(o.getId()));
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"SL-" + o.getOrderNumber() + "-receipt.pdf\"")
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(pdf);
     }
 
     private Order load(String orderNumber) {
