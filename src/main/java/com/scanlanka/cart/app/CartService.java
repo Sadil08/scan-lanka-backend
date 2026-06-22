@@ -9,7 +9,6 @@ import com.scanlanka.cart.infra.CartItemRepository;
 import com.scanlanka.cart.infra.CartRepository;
 import com.scanlanka.catalog.app.ProductLookupService;
 import com.scanlanka.catalog.app.ProductLookupService.LinePricing;
-import com.scanlanka.shared.security.RlsContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +19,7 @@ import java.util.List;
 
 /**
  * Cart logic (04-cart). Guest carts are validated/priced server-side (no persistence); customer carts
- * persist and are RLS-scoped (the GUC is set per transaction). Prices/stock are always server-authoritative.
+ * persist and are RLS-scoped ({@link com.scanlanka.shared.security.RlsGucAspect}). Prices/stock are always server-authoritative.
  */
 @Service
 public class CartService {
@@ -29,15 +28,13 @@ public class CartService {
     private final CartItemRepository items;
     private final CartPricingService pricing;
     private final ProductLookupService lookup;
-    private final RlsContext rls;
 
     public CartService(CartRepository carts, CartItemRepository items, CartPricingService pricing,
-                       ProductLookupService lookup, RlsContext rls) {
+                       ProductLookupService lookup) {
         this.carts = carts;
         this.items = items;
         this.pricing = pricing;
         this.lookup = lookup;
-        this.rls = rls;
     }
 
     public record CartLineView(Long itemId, Long productId, Long variantId, String name, int quantity,
@@ -52,13 +49,11 @@ public class CartService {
 
     @Transactional
     public CartView getCart(long userId) {
-        rls.setCurrentUser(userId);
         return toView(cartFor(userId));
     }
 
     @Transactional
     public CartView addItem(long userId, Long productId, Long variantId, int quantity) {
-        rls.setCurrentUser(userId);
         Cart cart = cartFor(userId);
         LinePricing lp = lookup.resolveLine(productId, variantId)
             .orElseThrow(() -> badRequest("INVALID_PRODUCT"));
@@ -76,7 +71,6 @@ public class CartService {
 
     @Transactional
     public CartView updateQuantity(long userId, Long itemId, int quantity) {
-        rls.setCurrentUser(userId);
         Cart cart = cartFor(userId);
         if (quantity < 1) throw badRequest("INVALID_QUANTITY");
         CartItem item = ownItem(cart, itemId);
@@ -90,7 +84,6 @@ public class CartService {
 
     @Transactional
     public CartView removeItem(long userId, Long itemId) {
-        rls.setCurrentUser(userId);
         Cart cart = cartFor(userId);
         items.findById(itemId)
             .filter(i -> i.getCartId().equals(cart.getId()))   // ownership (app + RLS)
@@ -100,7 +93,6 @@ public class CartService {
 
     @Transactional
     public CartView merge(long userId, List<LineInput> guestItems) {
-        rls.setCurrentUser(userId);
         Cart cart = cartFor(userId);
         for (LineInput in : guestItems) {
             LinePricing lp = lookup.resolveLine(in.productId(), in.variantId()).orElse(null);

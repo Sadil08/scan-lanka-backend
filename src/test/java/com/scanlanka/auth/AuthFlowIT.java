@@ -2,6 +2,8 @@ package com.scanlanka.auth;
 
 import com.scanlanka.AbstractIntegrationTest;
 import jakarta.servlet.http.Cookie;
+import com.scanlanka.auth.infra.AppUserRepository;
+import com.scanlanka.notification.infra.NotificationRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -22,6 +24,10 @@ class AuthFlowIT extends AbstractIntegrationTest {
 
     @Autowired
     MockMvc mvc;
+    @Autowired
+    AppUserRepository users;
+    @Autowired
+    NotificationRepository notifications;
 
     @Test
     void registerLoginMeLogoutAll() throws Exception {
@@ -71,5 +77,45 @@ class AuthFlowIT extends AbstractIntegrationTest {
             .andExpect(jsonPath("$.role").value("CUSTOMER")) // not ADMIN
             .andReturn();
         assertThat(login.getResponse().getCookie("sl_at")).isNotNull();
+    }
+
+    @Test
+    void unverifiedCustomerCannotUsePersistedCart() throws Exception {
+        String email = "unverified-cart@scanlanka.lk";
+        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"" + email + "\",\"password\":\"password123\",\"name\":\"U\"}"))
+            .andExpect(status().isCreated());
+        MvcResult login = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
+            .andExpect(status().isOk()).andReturn();
+        Cookie access = login.getResponse().getCookie("sl_at");
+
+        mvc.perform(get("/api/cart").cookie(access)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void verifyEmailUnlocksAccountFeatures() throws Exception {
+        String email = "verify-flow@scanlanka.lk";
+        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"" + email + "\",\"password\":\"password123\",\"name\":\"V\"}"))
+            .andExpect(status().isCreated());
+
+        String body = notifications.findAll().stream()
+            .filter(n -> n.getRecipient().equalsIgnoreCase(email))
+            .findFirst().orElseThrow().getBody();
+        String code = body.replaceAll(".*code is: (\\d{6}).*", "$1");
+
+        mvc.perform(post("/api/auth/verify-email").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}"))
+            .andExpect(status().isOk());
+
+        MvcResult login = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.emailVerified").value(true))
+            .andReturn();
+
+        mvc.perform(get("/api/cart").cookie(login.getResponse().getCookie("sl_at")))
+            .andExpect(status().isOk());
     }
 }

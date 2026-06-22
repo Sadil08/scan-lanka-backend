@@ -15,6 +15,9 @@ public record AuthProperties(
     @DefaultValue("sl_at") String accessCookie,
     @DefaultValue("sl_rt") String refreshCookie,
     @DefaultValue("10") int otpTtlMinutes,
-    @DefaultValue("5") int otpMaxAttempts
+    @DefaultValue("5") int otpMaxAttempts,
+    /** Optional — seeds the first ADMIN when no admin exists (07 T-15). */
+    @DefaultValue("") String initialAdminEmail,
+    @DefaultValue("") String initialAdminPassword
 ) {
 }

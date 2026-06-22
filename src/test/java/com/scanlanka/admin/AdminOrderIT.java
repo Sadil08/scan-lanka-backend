@@ -1,9 +1,8 @@
 package com.scanlanka.admin;
 
+import com.scanlanka.auth.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scanlanka.AbstractIntegrationTest;
-import com.scanlanka.auth.domain.AppUser;
-import com.scanlanka.auth.domain.Role;
 import com.scanlanka.auth.infra.AppUserRepository;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
@@ -32,13 +31,8 @@ class AdminOrderIT extends AbstractIntegrationTest {
     @Autowired ObjectMapper objectMapper;
 
     private Cookie adminCookie(String email) throws Exception {
-        AppUser admin = new AppUser(email, encoder.encode("password123"), "Admin", Role.ADMIN);
-        admin.setEmailVerified(true);
-        users.save(admin);
-        MvcResult res = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
-            .andExpect(status().isOk()).andReturn();
-        return res.getResponse().getCookie("sl_at");
+        AuthTestSupport.seedAdmin(users, encoder, email);
+        return AuthTestSupport.loginAdmin(mvc, email, "JBSWY3DPEHPK3PXP");
     }
 
     private String placeOrder() throws Exception {

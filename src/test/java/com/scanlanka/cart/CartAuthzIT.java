@@ -1,9 +1,11 @@
 package com.scanlanka.cart;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scanlanka.auth.AuthTestSupport;
 import com.scanlanka.AbstractIntegrationTest;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
+import com.scanlanka.auth.infra.AppUserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,7 @@ class CartAuthzIT extends AbstractIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ProductService productService;
     @Autowired ObjectMapper objectMapper;
+    @Autowired AppUserRepository users;
 
     private Long seedSingleProduct(int stock) {
         return productService.create(new CreateProductRequest(
@@ -33,12 +36,7 @@ class CartAuthzIT extends AbstractIntegrationTest {
     }
 
     private Cookie loginAs(String email) throws Exception {
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"" + email + "\",\"password\":\"password123\",\"name\":\"U\"}"));
-        MvcResult res = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
-            .andExpect(status().isOk()).andReturn();
-        return res.getResponse().getCookie("sl_at");
+        return AuthTestSupport.loginVerifiedCustomer(mvc, users, email);
     }
 
     @Test

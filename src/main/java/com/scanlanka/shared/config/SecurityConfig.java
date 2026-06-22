@@ -1,5 +1,6 @@
 package com.scanlanka.shared.config;
 
+import com.scanlanka.auth.web.AdminTotpEnforcementFilter;
 import com.scanlanka.auth.web.AuthFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +34,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, AuthFilter authFilter) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, AuthFilter authFilter,
+                                    AdminTotpEnforcementFilter adminTotpFilter) throws Exception {
         http
             .cors(Customizer.withDefaults())
             // CSRF: relying on SameSite=Strict httpOnly cookies for our same-site SPA (global/02 §7);
@@ -61,7 +63,8 @@ public class SecurityConfig {
                 // Remaining endpoints are added per feature with their own rules; default permit for now.
                 .anyRequest().permitAll()
             )
-            .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(adminTotpFilter, AuthFilter.class);
         return http.build();
     }
 

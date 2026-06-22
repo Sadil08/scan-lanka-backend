@@ -1,5 +1,6 @@
 package com.scanlanka.cart.web;
 
+import com.scanlanka.auth.app.AccountFeatureGuard;
 import com.scanlanka.cart.app.CartPricingService.LineInput;
 import com.scanlanka.cart.app.CartPricingService.PricedCart;
 import com.scanlanka.cart.app.CartService;
@@ -30,9 +31,11 @@ import java.util.List;
 public class CartController {
 
     private final CartService cart;
+    private final AccountFeatureGuard accountFeatures;
 
-    public CartController(CartService cart) {
+    public CartController(CartService cart, AccountFeatureGuard accountFeatures) {
         this.cart = cart;
+        this.accountFeatures = accountFeatures;
     }
 
     /** Guest cart: price the client-held lines. Public. */
@@ -43,30 +46,40 @@ public class CartController {
 
     @GetMapping
     public CartView get(@AuthenticationPrincipal AuthPrincipal principal) {
-        return cart.getCart(requireUser(principal));
+        long userId = requireUser(principal);
+        accountFeatures.requireVerifiedEmail(userId);
+        return cart.getCart(userId);
     }
 
     @PostMapping("/items")
     public CartView add(@AuthenticationPrincipal AuthPrincipal principal,
                         @Valid @RequestBody AddItemRequest req) {
-        return cart.addItem(requireUser(principal), req.productId(), req.variantId(), req.quantity());
+        long userId = requireUser(principal);
+        accountFeatures.requireVerifiedEmail(userId);
+        return cart.addItem(userId, req.productId(), req.variantId(), req.quantity());
     }
 
     @PatchMapping("/items/{id}")
     public CartView update(@AuthenticationPrincipal AuthPrincipal principal,
                            @PathVariable Long id, @Valid @RequestBody QuantityRequest req) {
-        return cart.updateQuantity(requireUser(principal), id, req.quantity());
+        long userId = requireUser(principal);
+        accountFeatures.requireVerifiedEmail(userId);
+        return cart.updateQuantity(userId, id, req.quantity());
     }
 
     @DeleteMapping("/items/{id}")
     public CartView remove(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable Long id) {
-        return cart.removeItem(requireUser(principal), id);
+        long userId = requireUser(principal);
+        accountFeatures.requireVerifiedEmail(userId);
+        return cart.removeItem(userId, id);
     }
 
     @PostMapping("/merge")
     public CartView merge(@AuthenticationPrincipal AuthPrincipal principal,
                           @RequestBody CartItemsRequest guestCart) {
-        return cart.merge(requireUser(principal), toInputs(guestCart.items()));
+        long userId = requireUser(principal);
+        accountFeatures.requireVerifiedEmail(userId);
+        return cart.merge(userId, toInputs(guestCart.items()));
     }
 
     private static long requireUser(AuthPrincipal principal) {

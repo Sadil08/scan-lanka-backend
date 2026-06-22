@@ -23,7 +23,7 @@ class OneTimeCodeServiceTest {
     private final PasswordEncoder encoder = new BCryptPasswordEncoder();
     private final AuthProperties props = new AuthProperties(
         "secret-key-32-bytes-minimum-for-testing-x", "scanlanka", "scanlanka-web",
-        15, 14, true, "sl_at", "sl_rt", 10, 3);
+        15, 14, true, "sl_at", "sl_rt", 10, 3, "", "");
     private final OneTimeCodeService service = new OneTimeCodeService(repo, encoder, props);
 
     @Test

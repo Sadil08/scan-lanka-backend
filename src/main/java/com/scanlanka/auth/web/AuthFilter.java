@@ -22,7 +22,8 @@ import java.util.List;
  * Authenticates each request from the httpOnly access cookie (global/02 §2). Validates signature +
  * iss/aud/exp (JwtService) and **token_version** against the user (so logout-all / reset takes effect),
  * and that the account is ACTIVE. On any problem the request proceeds unauthenticated (→ 401/403 on
- * protected routes). The RLS GUC (app.current_user_id) is wired with the first owner-scoped table (Phase 3).
+ * protected routes). The per-transaction RLS GUC ({@code app.current_user_id}) is bound by
+ * {@link com.scanlanka.shared.security.RlsGucAspect} on every {@code @Transactional} call.
  */
 @Component
 public class AuthFilter extends OncePerRequestFilter {

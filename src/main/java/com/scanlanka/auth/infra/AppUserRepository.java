@@ -1,6 +1,7 @@
 package com.scanlanka.auth.infra;
 
 import com.scanlanka.auth.domain.AppUser;
+import com.scanlanka.auth.domain.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -13,4 +14,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
     @Query("select count(u) > 0 from AppUser u where lower(u.email) = lower(?1)")
     boolean existsByEmailIgnoreCase(String email);
+
+    boolean existsByRole(Role role);
 }

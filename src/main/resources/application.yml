@@ -76,3 +76,5 @@ app:
     cookie-secure: ${AUTH_COOKIE_SECURE:false}   # true in prod (HTTPS); false for local http
     otp-ttl-minutes: 10
     otp-max-attempts: 5
+    initial-admin-email: ${INITIAL_ADMIN_EMAIL:}
+    initial-admin-password: ${INITIAL_ADMIN_PASSWORD:}
