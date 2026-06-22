@@ -127,7 +127,6 @@
         <!-- Spring-dotenv --> 
         <dependency>
             <groupId>me.paulschwarz</groupId>
-            <groupId>spring-dotenv</groupId>
             <artifactId>spring-dotenv</artifactId>
             <version>4.0.0</version>
         </dependency>
