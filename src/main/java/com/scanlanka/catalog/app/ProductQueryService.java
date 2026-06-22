@@ -81,6 +81,18 @@ public class ProductQueryService {
         return new DetailView(toDetail(p), etag);
     }
 
+    /** Wishlist list projection — preserves order, drops hidden/archived products. */
+    public List<ProductChipDTO> chipsForVisibleProductIds(List<Long> productIdsInOrder) {
+        List<ProductChipDTO> result = new java.util.ArrayList<>();
+        for (Long id : productIdsInOrder) {
+            products.findById(id)
+                .filter(p -> p.isActive() && !p.isArchived())
+                .map(this::toChip)
+                .ifPresent(result::add);
+        }
+        return result;
+    }
+
     /** Resolve the variant for a selected set of price-affecting option ids (server-authoritative price). */
     public ResolveVariantResponse resolveVariant(Long productId, Collection<Long> selectedOptionIds) {
         if (selectedOptionIds == null || selectedOptionIds.isEmpty()) {

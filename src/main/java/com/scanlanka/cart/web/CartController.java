@@ -9,7 +9,9 @@ import com.scanlanka.cart.web.dto.CartRequests.AddItemRequest;
 import com.scanlanka.cart.web.dto.CartRequests.CartItemsRequest;
 import com.scanlanka.cart.web.dto.CartRequests.ItemDTO;
 import com.scanlanka.cart.web.dto.CartRequests.QuantityRequest;
+import com.scanlanka.shared.ratelimit.RateLimiter;
 import com.scanlanka.shared.security.AuthPrincipal;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,17 +32,23 @@ import java.util.List;
 @RequestMapping("/api/cart")
 public class CartController {
 
+    private static final int VALIDATE_RATE_LIMIT = 60;
+    private static final int VALIDATE_RATE_WINDOW_SEC = 60;
+
     private final CartService cart;
     private final AccountFeatureGuard accountFeatures;
+    private final RateLimiter rateLimiter;
 
-    public CartController(CartService cart, AccountFeatureGuard accountFeatures) {
+    public CartController(CartService cart, AccountFeatureGuard accountFeatures, RateLimiter rateLimiter) {
         this.cart = cart;
         this.accountFeatures = accountFeatures;
+        this.rateLimiter = rateLimiter;
     }
 
     /** Guest cart: price the client-held lines. Public. */
     @PostMapping("/validate")
-    public PricedCart validate(@RequestBody CartItemsRequest req) {
+    public PricedCart validate(@RequestBody CartItemsRequest req, HttpServletRequest http) {
+        rateLimiter.check("cart-validate:" + clientIp(http), VALIDATE_RATE_LIMIT, VALIDATE_RATE_WINDOW_SEC);
         return cart.validate(toInputs(req.items()));
     }
 
@@ -90,5 +98,10 @@ public class CartController {
     private static List<LineInput> toInputs(List<ItemDTO> items) {
         if (items == null) return List.of();
         return items.stream().map(i -> new LineInput(i.productId(), i.variantId(), i.quantity())).toList();
+    }
+
+    private static String clientIp(HttpServletRequest request) {
+        String fwd = request.getHeader("X-Forwarded-For");
+        return (fwd != null && !fwd.isBlank()) ? fwd.split(",")[0].trim() : request.getRemoteAddr();
     }
 }
