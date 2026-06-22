@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -18,6 +19,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // Storefront sees only visible products (02-storefront-browse).
     Page<Product> findByActiveTrueAndArchivedFalse(Pageable pageable);
     Optional<Product> findBySlugAndActiveTrueAndArchivedFalse(String slug);
+
+    @Query("SELECT DISTINCT p.category FROM Product p WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL ORDER BY p.category")
+    List<String> findDistinctVisibleCategories();
+
+    @Query("SELECT DISTINCT p.parentProductId FROM Product p WHERE p.active = true AND p.archived = false AND p.parentProductId IS NOT NULL")
+    List<Long> findDistinctVisibleParentIds();
 
     /** Atomic conditional decrement for SINGLE products (no oversell, T-10). */
     @Modifying(clearAutomatically = true)

@@ -4,7 +4,9 @@ import com.scanlanka.catalog.app.ImageService;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.ActiveRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
+import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
+import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Map;
 
 /** Admin product management (01 §3). Under /api/admin/** → ADMIN-gated by SecurityConfig. Thin controller. */
@@ -57,6 +60,11 @@ public class AdminProductController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> delete(@PathVariable Long id) {
         return ResponseEntity.ok(Map.of("outcome", productService.delete(id)));
+    }
+
+    @PostMapping("/variants/preview")
+    public VariantPreviewResponse previewVariants(@Valid @RequestBody List<GroupInput> groups) {
+        return productService.previewVariants(groups);
     }
 
     @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

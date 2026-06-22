@@ -40,4 +40,25 @@ public class VariantService {
     public String signature(Collection<Long> optionIds) {
         return optionIds.stream().sorted().map(String::valueOf).collect(Collectors.joining("-"));
     }
+
+    /** Cartesian product of option value labels (admin variant grid preview). */
+    public List<List<String>> cartesianValues(List<List<String>> priceAffectingGroups) {
+        if (priceAffectingGroups == null || priceAffectingGroups.isEmpty()) {
+            return List.of();
+        }
+        List<List<String>> result = new ArrayList<>();
+        result.add(new ArrayList<>());
+        for (List<String> group : priceAffectingGroups) {
+            List<List<String>> next = new ArrayList<>();
+            for (List<String> combo : result) {
+                for (String value : group) {
+                    List<String> extended = new ArrayList<>(combo);
+                    extended.add(value);
+                    next.add(extended);
+                }
+            }
+            result = next;
+        }
+        return result;
+    }
 }

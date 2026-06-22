@@ -18,13 +18,16 @@ public class ImageService {
     private final ProductImageRepository images;
     private final ImageProcessing processing;
     private final ImageStorage storage;
+    private final CatalogCacheEvictor cacheEvictor;
 
     public ImageService(ProductRepository products, ProductImageRepository images,
-                        ImageProcessing processing, ImageStorage storage) {
+                        ImageProcessing processing, ImageStorage storage,
+                        CatalogCacheEvictor cacheEvictor) {
         this.products = products;
         this.images = images;
         this.processing = processing;
         this.storage = storage;
+        this.cacheEvictor = cacheEvictor;
     }
 
     public record StoredImageView(long id, String url, boolean preview) {}
@@ -46,6 +49,7 @@ public class ImageService {
         int order = images.findByProductIdOrderByDisplayOrderAsc(product.getId()).size();
         ProductImage saved = images.save(
             new ProductImage(product.getId(), stored.key(), stored.url(), isPreview, order));
+        cacheEvictor.evictAll();
         return new StoredImageView(saved.getId(), stored.url(), saved.isPreview());
     }
 }

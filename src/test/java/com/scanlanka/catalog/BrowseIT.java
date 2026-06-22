@@ -83,4 +83,30 @@ class BrowseIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/products/does-not-exist"))
             .andExpect(status().isNotFound());
     }
+
+    @Test
+    void searchAndFilterProducts() throws Exception {
+        Long id = seedProduct();
+        Product p = products.findById(id).orElseThrow();
+
+        mvc.perform(get("/api/products").param("q", "Carrom"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.slug=='" + p.getSlug() + "')]").exists());
+
+        mvc.perform(get("/api/products").param("q", "nonexistent-xyz"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(0));
+
+        mvc.perform(get("/api/products").param("category", "Boards"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.slug=='" + p.getSlug() + "')]").exists());
+    }
+
+    @Test
+    void facetsEndpointReturnsCategories() throws Exception {
+        seedProduct();
+        mvc.perform(get("/api/catalog/facets"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.categories[0]").value("Boards"));
+    }
 }

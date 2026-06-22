@@ -12,8 +12,12 @@ import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
+import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.VariantInput;
+import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewResponse;
+import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewRowDTO;
+import com.scanlanka.order.infra.OrderItemRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,16 +48,21 @@ public class ProductService {
     private final ProductVariantRepository variants;
     private final VariantService variantService;
     private final ProductPricingService pricing;
+    private final OrderItemRepository orderItems;
+    private final CatalogCacheEvictor cacheEvictor;
 
     public ProductService(ProductRepository products, SpecGroupRepository groups, SpecOptionRepository options,
                           ProductVariantRepository variants, VariantService variantService,
-                          ProductPricingService pricing) {
+                          ProductPricingService pricing, OrderItemRepository orderItems,
+                          CatalogCacheEvictor cacheEvictor) {
         this.products = products;
         this.groups = groups;
         this.options = options;
         this.variants = variants;
         this.variantService = variantService;
         this.pricing = pricing;
+        this.orderItems = orderItems;
+        this.cacheEvictor = cacheEvictor;
     }
 
     @Transactional
@@ -102,6 +111,7 @@ public class ProductService {
         if (mode == PriceMode.VARIANT) {
             persistVariants(product, priceAffectingOptionIds, priceAffectingValueToId, nullSafe(req.variants()));
         }
+        cacheEvictor.evictAll();
         return product.getId();
     }
 
@@ -122,6 +132,7 @@ public class ProductService {
             if (req.stockQty() != null) p.setStockQty(req.stockQty());
         }
         products.save(p);
+        cacheEvictor.evictAll();
     }
 
     /** Toggle storefront visibility without deleting (FR-CATALOG-12). */
@@ -131,17 +142,39 @@ public class ProductService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
         p.setActive(active);
         products.save(p);
+        cacheEvictor.evictAll();
+    }
+
+    /** Preview variant combinations for admin UI (01 FR-CATALOG-6). */
+    public VariantPreviewResponse previewVariants(List<GroupInput> groups) {
+        List<List<String>> priceGroups = nullSafe(groups).stream()
+            .filter(GroupInput::priceAffecting)
+            .map(GroupInput::options)
+            .toList();
+        List<List<String>> combos = variantService.cartesianValues(priceGroups);
+        List<VariantPreviewRowDTO> rows = new ArrayList<>();
+        for (int i = 0; i < combos.size(); i++) {
+            rows.add(new VariantPreviewRowDTO(combos.get(i), i));
+        }
+        return new VariantPreviewResponse(rows);
     }
 
     /**
-     * Delete a product (FR-CATALOG-10). Hard-delete cascades groups/options/variants/images (DB
-     * ON DELETE CASCADE). Soft-archive-if-ordered branch is wired in Phase 4 once order_item exists.
+     * Delete a product (FR-CATALOG-10). Hard-delete when never ordered; soft-archive otherwise.
      */
     @Transactional
     public String delete(Long id) {
         Product p = products.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+        if (orderItems.existsByProductId(id)) {
+            p.archive();
+            p.setActive(false);
+            products.save(p);
+            cacheEvictor.evictAll();
+            return "ARCHIVED";
+        }
         products.delete(p);
+        cacheEvictor.evictAll();
         return "DELETED";
     }
 

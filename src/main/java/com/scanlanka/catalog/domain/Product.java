@@ -130,4 +130,5 @@ public class Product {
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public boolean isArchived() { return archived; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

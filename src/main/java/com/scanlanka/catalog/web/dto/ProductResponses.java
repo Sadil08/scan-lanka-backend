@@ -21,7 +21,16 @@ public final class ProductResponses {
     public record ProductDetailDTO(
         long id, String slug, String name, String description, String details,
         String priceMode, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
+        String availability,
         List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants) {}
+
+    public record ParentFacetDTO(long id, String name, String slug) {}
+
+    public record CatalogFacetsDTO(List<ParentFacetDTO> parents, List<String> categories) {}
+
+    public record VariantPreviewRowDTO(List<String> optionValues, int index) {}
+
+    public record VariantPreviewResponse(List<VariantPreviewRowDTO> rows) {}
 
     public record ResolveVariantRequest(List<Long> selectedOptionIds) {}
 
