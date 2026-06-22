@@ -1,0 +1,33 @@
+# Local dev infra (global/12 Phase 0). Postgres + Redis only — app runs on host.
+# Usage: docker compose up -d   then   cd backend && mvn spring-boot:run
+services:
+  postgres:
+    image: postgres:16
+    container_name: scanlanka-postgres
+    environment:
+      POSTGRES_DB: scanlanka
+      POSTGRES_USER: scanlanka_app        # non-superuser app role used at runtime (global/02 §6)
+      POSTGRES_PASSWORD: dev_only_change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scanlanka_app -d scanlanka"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: scanlanka-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

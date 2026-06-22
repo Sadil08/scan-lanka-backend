@@ -1,0 +1,45 @@
+# =========================================================================
+# Target / Build Outputs (Never commit compiled binaries)
+# =========================================================================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+build/
+bin/
+
+# =========================================================================
+# Environment Secrets / Local Overrides
+# =========================================================================
+.env
+.env.local
+.env.*.local
+
+# =========================================================================
+# Application Specific Files
+# =========================================================================
+# Ignore local uploads directory (e.g., your app's var/media folder)
+var/
+media/
+
+# =========================================================================
+# IDE & System Files
+# =========================================================================
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### Eclipse ###
+.metadata/
+.classpath
+.project
+.settings/
+*.launch
+
+### VS Code ###
+.vscode/
+
+### Operating System ###
+.DS_Store
+Thumbs.db
