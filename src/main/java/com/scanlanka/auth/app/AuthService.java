@@ -5,6 +5,7 @@ import com.scanlanka.auth.domain.OneTimeCode.Purpose;
 import com.scanlanka.auth.domain.Role;
 import com.scanlanka.auth.domain.UserStatus;
 import com.scanlanka.auth.infra.AppUserRepository;
+import com.scanlanka.notification.app.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,15 +28,18 @@ public class AuthService {
     private final RefreshTokenService refreshTokens;
     private final OneTimeCodeService otp;
     private final TotpService totp;
+    private final NotificationService notifications;
 
     public AuthService(AppUserRepository users, PasswordEncoder encoder, JwtService jwt,
-                       RefreshTokenService refreshTokens, OneTimeCodeService otp, TotpService totp) {
+                       RefreshTokenService refreshTokens, OneTimeCodeService otp, TotpService totp,
+                       NotificationService notifications) {
         this.users = users;
         this.encoder = encoder;
         this.jwt = jwt;
         this.refreshTokens = refreshTokens;
         this.otp = otp;
         this.totp = totp;
+        this.notifications = notifications;
     }
 
     public record Tokens(String accessToken, String refreshToken) {}
@@ -47,7 +51,9 @@ public class AuthService {
     public void register(String email, String rawPassword, String name) {
         if (!users.existsByEmailIgnoreCase(email)) {
             AppUser u = users.save(new AppUser(email.toLowerCase(), encoder.encode(rawPassword), name, Role.CUSTOMER));
-            otp.issue(u.getId(), Purpose.EMAIL_VERIFY); // emailed in Phase 6
+            String code = otp.issue(u.getId(), Purpose.EMAIL_VERIFY);
+            notifications.enqueue("EMAIL_VERIFY", u.getEmail(), "Verify your Scan Lanka email",
+                "Your verification code is: " + code, "verify:" + u.getId() + ":" + code);
         }
         // else: do nothing, but respond identically (no enumeration oracle)
     }
@@ -106,8 +112,11 @@ public class AuthService {
     /** Always uniform — never reveals whether the email exists. */
     @Transactional
     public void forgotPassword(String email) {
-        users.findByEmailIgnoreCase(email)
-            .ifPresent(u -> otp.issue(u.getId(), Purpose.PASSWORD_RESET)); // emailed in Phase 6
+        users.findByEmailIgnoreCase(email).ifPresent(u -> {
+            String code = otp.issue(u.getId(), Purpose.PASSWORD_RESET);
+            notifications.enqueue("PASSWORD_RESET", u.getEmail(), "Reset your Scan Lanka password",
+                "Your password reset code is: " + code, "reset:" + u.getId() + ":" + code);
+        });
     }
 
     @Transactional

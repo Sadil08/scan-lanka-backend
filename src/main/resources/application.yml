@@ -52,9 +52,20 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   storage:
     dir: ${STORAGE_DIR:./var/media}     # backend image store, outside web root (global/02 §8, T-20)
+  notifications:
+    admin-email: ${ADMIN_NOTIFY_EMAIL:orders@scanlanka.com}   # dispatch summaries go here
+    poll-ms: 15000
   order:
     # Order-number signing secret — override by env in every real environment (global/02 §5).
     signing-secret: ${ORDER_SIGNING_SECRET:dev-only-order-signing-secret-change-me}
+  payhere:
+    merchant-id: ${PAYHERE_MERCHANT_ID:}
+    merchant-secret: ${PAYHERE_MERCHANT_SECRET:}          # from secret manager (SEC-PAY-2)
+    currency: LKR
+    checkout-url: ${PAYHERE_CHECKOUT_URL:https://sandbox.payhere.lk/pay/checkout}
+    notify-url: ${PAYHERE_NOTIFY_URL:http://localhost:8080/api/payments/payhere/notify}
+    return-url: ${PAYHERE_RETURN_URL:http://localhost:3000/checkout/return}
+    cancel-url: ${PAYHERE_CANCEL_URL:http://localhost:3000/checkout}
   auth:
     # Dev-only default (>= 32 bytes for HS256). MUST be overridden by env in every real environment.
     jwt-secret: ${JWT_SECRET:dev-only-change-me-please-rotate-32+bytes-secret}

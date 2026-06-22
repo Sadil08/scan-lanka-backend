@@ -1,0 +1,117 @@
+package com.scanlanka.payment.app;
+
+import com.scanlanka.order.domain.Order;
+import com.scanlanka.order.domain.OrderStatus;
+import com.scanlanka.order.domain.OrderStatusEvent.ActorType;
+import com.scanlanka.order.app.OrderService;
+import com.scanlanka.order.infra.OrderRepository;
+import com.scanlanka.payment.domain.Payment;
+import com.scanlanka.payment.domain.PaymentEvent;
+import com.scanlanka.payment.infra.PaymentEventRepository;
+import com.scanlanka.payment.infra.PaymentRepository;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * PayHere payments (06). PAID only on a signature-verified, amount-matched notify; **idempotent**
+ * (payment_event unique) and on success **atomically decrements stock** (T-1/T-4/T-10/T-11).
+ */
+@Service
+public class PaymentService {
+
+    private final OrderRepository orders;
+    private final OrderService orderService;
+    private final PaymentRepository payments;
+    private final PaymentEventRepository events;
+    private final PayHereHasher hasher;
+    private final PayHereProperties props;
+    private final OrderFulfilmentConfirmer confirmer;
+
+    public PaymentService(OrderRepository orders, OrderService orderService, PaymentRepository payments,
+                          PaymentEventRepository events, PayHereHasher hasher, PayHereProperties props,
+                          OrderFulfilmentConfirmer confirmer) {
+        this.orders = orders;
+        this.orderService = orderService;
+        this.payments = payments;
+        this.events = events;
+        this.hasher = hasher;
+        this.props = props;
+        this.confirmer = confirmer;
+    }
+
+    public record InitiateResult(String checkoutUrl, Map<String, String> params) {}
+
+    public record NotifyParams(String orderId, String amount, String currency, String statusCode,
+                               String md5sig, String paymentId) {}
+
+    @Transactional
+    public InitiateResult initiate(String orderNumber) {
+        Order order = orders.findByOrderNumber(orderNumber)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "ORDER_NOT_PAYABLE");
+        }
+        String amount = formatAmount(order.getTotalCents());
+        String hash = hasher.initHash(orderNumber, amount, props.currency());
+
+        payments.findByOrderId(order.getId()).orElseGet(() -> payments.save(
+            new Payment(order.getId(), Payment.Method.PAYHERE, Payment.Status.PENDING,
+                order.getTotalCents(), props.currency())));
+
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("merchant_id", props.merchantId());
+        params.put("return_url", props.returnUrl());
+        params.put("cancel_url", props.cancelUrl());
+        params.put("notify_url", props.notifyUrl());
+        params.put("order_id", orderNumber);
+        params.put("items", "Scan Lanka Order " + orderNumber);
+        params.put("currency", props.currency());
+        params.put("amount", amount);
+        params.put("hash", hash);                 // secret never sent — only the hash
+        return new InitiateResult(props.checkoutUrl(), params);
+    }
+
+    /** PayHere server-to-server notify — the ONLY proof of payment (06 FR-PAY-2/3). */
+    @Transactional
+    public void handleNotify(NotifyParams n) {
+        boolean sigOk = hasher.verifyNotify(n.orderId(), n.amount(), n.currency(), n.statusCode(), n.md5sig());
+        String ref = (n.paymentId() != null && !n.paymentId().isBlank()) ? n.paymentId() : n.orderId();
+
+        try {
+            events.saveAndFlush(new PaymentEvent("PAYHERE", ref, n.statusCode(), sigOk)); // idempotency (T-4)
+        } catch (DataIntegrityViolationException duplicate) {
+            return; // already processed
+        }
+        if (!sigOk) return; // forged/invalid signature → ignore (T-11)
+
+        Order order = orders.findByOrderNumber(n.orderId()).orElse(null);
+        if (order == null) return;
+        if (!formatAmount(order.getTotalCents()).equals(n.amount())
+            || !props.currency().equalsIgnoreCase(n.currency())) {
+            return; // amount/currency mismatch → never mark paid (T-1)
+        }
+
+        if ("2".equals(n.statusCode())) {                       // PayHere success
+            if (confirmer.confirmPaidAndDecrement(order, ActorType.SYSTEM, null, "PayHere notify")) {
+                payments.findByOrderId(order.getId()).ifPresent(p -> {
+                    p.markPaid(n.paymentId(), n.statusCode());
+                    payments.save(p);
+                });
+            }
+        } else if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
+            orderService.transition(order.getId(), OrderStatus.PAYMENT_FAILED, ActorType.SYSTEM, null,
+                "PayHere status " + n.statusCode());
+        }
+    }
+
+    private static String formatAmount(long cents) {
+        return String.format(Locale.US, "%.2f", cents / 100.0);
+    }
+}

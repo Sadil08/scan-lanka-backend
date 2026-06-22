@@ -94,10 +94,19 @@ public class Order {
     public Long getCustomerId() { return customerId; }
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }
+    public String getContactName() { return contactName; }
     public String getContactEmail() { return contactEmail; }
+    public FulfilmentType getFulfilmentType() { return fulfilmentType; }
     public DeliveryPayment getDeliveryPayment() { return deliveryPayment; }
+    public long getSubtotalCents() { return subtotalCents; }
+    public long getDeliveryCents() { return deliveryCents; }
+    public long getTaxCents() { return taxCents; }
     public long getTotalCents() { return totalCents; }
     public long getDeliveryCodCents() { return deliveryCodCents; }
+    public String getShipStreet() { return shipStreet; }
+    public String getShipCity() { return shipCity; }
+    public String getShipProvince() { return shipProvince; }
+    public String getShipPostalCode() { return shipPostalCode; }
 
     public void setGuestEmail(String v) { this.guestEmail = v; }
     public void setContact(String name, String phone, String email) {

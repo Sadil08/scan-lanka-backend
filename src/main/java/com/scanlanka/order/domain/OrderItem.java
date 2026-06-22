@@ -55,8 +55,11 @@ public class OrderItem {
 
     public Long getId() { return id; }
     public Long getOrderId() { return orderId; }
+    public Long getProductId() { return productId; }
+    public Long getVariantId() { return variantId; }
     public String getSkuSnapshot() { return skuSnapshot; }
     public String getNameSnapshot() { return nameSnapshot; }
+    public String getHandlingClassSnapshot() { return handlingClassSnapshot; }
     public long getUnitPriceCents() { return unitPriceCents; }
     public int getQuantity() { return quantity; }
     public long getLineTotalCents() { return lineTotalCents; }
