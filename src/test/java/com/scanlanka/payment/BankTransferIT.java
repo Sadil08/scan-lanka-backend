@@ -97,4 +97,24 @@ class BankTransferIT extends AbstractIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().is4xxClientError());
     }
+
+    @Test
+    void rejectThenReuploadSlip() throws Exception {
+        Long productId = seed();
+        String orderNumber = place(productId);
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+            .andExpect(status().isCreated());
+
+        Cookie admin = adminCookie("admin-reject@scanlanka.lk");
+        mvc.perform(post("/api/admin/payments/" + orderNumber + "/bank-reject").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"unclear\"}"))
+            .andExpect(status().isOk());
+        assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
+            .isEqualTo(OrderStatus.BANK_SLIP_REJECTED);
+
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+            .andExpect(status().isCreated());
+        assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
+            .isEqualTo(OrderStatus.AWAITING_BANK_CONFIRMATION);
+    }
 }

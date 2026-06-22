@@ -1,6 +1,8 @@
 package com.scanlanka.payment.web;
 
 import com.scanlanka.payment.app.BankTransferService;
+import com.scanlanka.payment.app.PaymentMethodsService;
+import com.scanlanka.payment.app.PaymentMethodsService.PaymentMethodsView;
 import com.scanlanka.payment.app.PaymentService;
 import com.scanlanka.payment.app.PaymentService.InitiateResult;
 import com.scanlanka.payment.app.PaymentService.NotifyParams;
@@ -8,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,10 +28,18 @@ public class PaymentController {
 
     private final PaymentService payments;
     private final BankTransferService bankTransfer;
+    private final PaymentMethodsService paymentMethodsService;
 
-    public PaymentController(PaymentService payments, BankTransferService bankTransfer) {
+    public PaymentController(PaymentService payments, BankTransferService bankTransfer,
+                             PaymentMethodsService paymentMethodsService) {
         this.payments = payments;
         this.bankTransfer = bankTransfer;
+        this.paymentMethodsService = paymentMethodsService;
+    }
+
+    @GetMapping("/methods")
+    public PaymentMethodsView methods() {
+        return paymentMethodsService.methods();
     }
 
     public record InitiateRequest(@NotBlank String orderNumber) {}

@@ -1,6 +1,7 @@
 package com.scanlanka.payment.app;
 
 import com.scanlanka.catalog.app.StockService;
+import com.scanlanka.checkout.app.StockReservationService;
 import com.scanlanka.notification.app.NotificationService;
 import com.scanlanka.order.app.OrderService;
 import com.scanlanka.order.domain.DeliveryPayment;
@@ -27,15 +28,17 @@ public class OrderFulfilmentConfirmer {
     private final OrderItemRepository orderItems;
     private final StockService stock;
     private final NotificationService notifications;
+    private final StockReservationService reservations;
     private final String adminEmail;
 
     public OrderFulfilmentConfirmer(OrderService orderService, OrderItemRepository orderItems, StockService stock,
-                                    NotificationService notifications,
+                                    NotificationService notifications, StockReservationService reservations,
                                     @Value("${app.notifications.admin-email}") String adminEmail) {
         this.orderService = orderService;
         this.orderItems = orderItems;
         this.stock = stock;
         this.notifications = notifications;
+        this.reservations = reservations;
         this.adminEmail = adminEmail;
     }
 
@@ -56,6 +59,7 @@ public class OrderFulfilmentConfirmer {
                 stock.decrement(item.getProductId(), item.getVariantId(), item.getQuantity());
             }
         }
+        reservations.consumeForOrder(order.getId());
 
         // receipt → customer, dispatch summary → admin (idempotent outbox; emailed by the worker)
         notifications.enqueue("ORDER_RECEIPT", order.getContactEmail(),

@@ -1,5 +1,6 @@
 package com.scanlanka.payment.app;
 
+import com.scanlanka.checkout.app.StockReservationService;
 import com.scanlanka.order.domain.Order;
 import com.scanlanka.order.domain.OrderStatus;
 import com.scanlanka.order.domain.OrderStatusEvent.ActorType;
@@ -33,10 +34,11 @@ public class PaymentService {
     private final PayHereHasher hasher;
     private final PayHereProperties props;
     private final OrderFulfilmentConfirmer confirmer;
+    private final StockReservationService reservations;
 
     public PaymentService(OrderRepository orders, OrderService orderService, PaymentRepository payments,
                           PaymentEventRepository events, PayHereHasher hasher, PayHereProperties props,
-                          OrderFulfilmentConfirmer confirmer) {
+                          OrderFulfilmentConfirmer confirmer, StockReservationService reservations) {
         this.orders = orders;
         this.orderService = orderService;
         this.payments = payments;
@@ -44,6 +46,7 @@ public class PaymentService {
         this.hasher = hasher;
         this.props = props;
         this.confirmer = confirmer;
+        this.reservations = reservations;
     }
 
     public record InitiateResult(String checkoutUrl, Map<String, String> params) {}
@@ -108,6 +111,7 @@ public class PaymentService {
         } else if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
             orderService.transition(order.getId(), OrderStatus.PAYMENT_FAILED, ActorType.SYSTEM, null,
                 "PayHere status " + n.statusCode());
+            reservations.releaseForOrder(order.getId());
         }
     }
 

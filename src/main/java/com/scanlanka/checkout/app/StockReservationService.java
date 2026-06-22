@@ -63,6 +63,18 @@ public class StockReservationService {
         return reservations.releaseExpired(Instant.now());
     }
 
+    /** Release holds when payment fails or is abandoned (06 FR-PAY-9). */
+    @Transactional
+    public void releaseForOrder(Long orderId) {
+        reservations.releaseForOrder(orderId);
+    }
+
+    /** Convert soft-reserve to fulfilled stock decrement path (06 FR-PAY-5). */
+    @Transactional
+    public void consumeForOrder(Long orderId) {
+        reservations.releaseForOrder(orderId);
+    }
+
     private Integer physicalStock(Long productId, Long variantId) {
         if (variantId != null) {
             return variants.findById(variantId)

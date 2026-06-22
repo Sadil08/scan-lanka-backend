@@ -22,4 +22,8 @@ public interface StockReservationRepository extends JpaRepository<StockReservati
     @Modifying
     @Query("UPDATE StockReservation r SET r.released = true WHERE r.released = false AND r.expiresAt <= :now")
     int releaseExpired(@Param("now") Instant now);
+
+    @Modifying
+    @Query("UPDATE StockReservation r SET r.released = true WHERE r.orderId = :orderId AND r.released = false")
+    int releaseForOrder(@Param("orderId") Long orderId);
 }

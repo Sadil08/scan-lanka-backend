@@ -99,6 +99,32 @@ class PaymentWebhookIT extends AbstractIntegrationTest {
             .isEqualTo(OrderStatus.PENDING_PAYMENT); // not paid
     }
 
+    @Test
+    void amountMismatchDoesNotMarkPaid() throws Exception {
+        Long productId = productService.create(new CreateProductRequest(
+            null, "Marker " + System.nanoTime(), null, null, null, "Accessories", null, 5, 250L,
+            List.of(), List.of()));
+        var placeRes = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
+                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"contactName\":\"M\",\"contactPhone\":\"+9477\",\"contactEmail\":\"m@x.lk\"}"))
+            .andExpect(status().isOk()).andReturn();
+        String orderNumber = objectMapper.readTree(placeRes.getResponse().getContentAsString())
+            .get("orderNumber").asText();
+
+        String wrongAmount = "99.99";
+        String sig = gatewaySig(orderNumber, wrongAmount, "LKR", "2");
+        mvc.perform(post("/api/payments/payhere/notify").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("merchant_id", MID).param("order_id", orderNumber)
+                .param("payhere_amount", wrongAmount).param("payhere_currency", "LKR")
+                .param("status_code", "2").param("md5sig", sig).param("payment_id", "PH-BAD"))
+            .andExpect(status().isOk());
+
+        assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
+            .isEqualTo(OrderStatus.PENDING_PAYMENT);
+        assertThat(products.findById(productId).orElseThrow().getStockQty()).isEqualTo(5);
+    }
+
     private static String gatewaySig(String orderRef, String amount, String currency, String status) {
         return md5Upper(MID + orderRef + amount + currency + status + md5Upper(SECRET));
     }
