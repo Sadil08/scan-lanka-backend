@@ -50,6 +50,8 @@ public class BankTransferSlip {
     }
 
     public Long getId() { return id; }
+    public String getUrl() { return url; }
+    public String getReviewStatus() { return reviewStatus; }
     public void review(Review status, Long adminId, String note) {
         this.reviewStatus = status.name();
         this.reviewedBy = adminId;

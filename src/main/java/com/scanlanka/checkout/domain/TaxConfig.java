@@ -22,4 +22,9 @@ public class TaxConfig {
 
     public int getRateBps() { return rateBps; }
     public String getLabel() { return label; }
+
+    public void update(int rateBps, String label) {
+        this.rateBps = rateBps;
+        this.label = label != null && !label.isBlank() ? label : "Tax";
+    }
 }

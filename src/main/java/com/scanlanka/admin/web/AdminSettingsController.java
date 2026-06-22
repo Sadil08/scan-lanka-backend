@@ -20,14 +20,19 @@ public class AdminSettingsController {
         this.settings = settings;
     }
 
-    public record SettingsView(boolean codEnabled, boolean bankTransferEnabled) {}
-    public record UpdateSettings(Boolean codEnabled, Boolean bankTransferEnabled) {}
+    public record SettingsView(boolean codEnabled, boolean bankTransferEnabled, String bankAccountDetails,
+                               String whatsappLocal, String whatsappIntl) {}
+    public record UpdateSettings(Boolean codEnabled, Boolean bankTransferEnabled, String bankAccountDetails,
+                                 String whatsappLocal, String whatsappIntl) {}
 
     @GetMapping
     public SettingsView get() {
         return new SettingsView(
             settings.getBool("cod_enabled", true),
-            settings.getBool("bank_transfer_enabled", true));
+            settings.getBool("bank_transfer_enabled", true),
+            settings.get("bank_account_details").orElse(""),
+            settings.get("whatsapp_local").orElse(""),
+            settings.get("whatsapp_intl").orElse(""));
     }
 
     @PutMapping
@@ -37,6 +42,11 @@ public class AdminSettingsController {
         if (req.bankTransferEnabled() != null) {
             settings.put("bank_transfer_enabled", req.bankTransferEnabled().toString(), adminId);
         }
+        if (req.bankAccountDetails() != null) {
+            settings.put("bank_account_details", req.bankAccountDetails(), adminId);
+        }
+        if (req.whatsappLocal() != null) settings.put("whatsapp_local", req.whatsappLocal(), adminId);
+        if (req.whatsappIntl() != null) settings.put("whatsapp_intl", req.whatsappIntl(), adminId);
         return get();
     }
 }

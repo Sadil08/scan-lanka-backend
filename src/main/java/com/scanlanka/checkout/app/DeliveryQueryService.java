@@ -4,6 +4,7 @@ import com.scanlanka.checkout.domain.DeliveryZone;
 import com.scanlanka.checkout.domain.DeliveryZonePostalCode;
 import com.scanlanka.checkout.infra.DeliveryZonePostalCodeRepository;
 import com.scanlanka.checkout.infra.DeliveryZoneRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class DeliveryQueryService {
 
     public record ZoneLocationView(String zone, List<String> postalCodes) {}
 
+    @Cacheable(value = "delivery-postal", key = "#q == null ? '' : #q")
     public List<PostalCodeView> postalCodes(String q) {
         String needle = q == null ? "" : q.trim();
         return postalCodes.findAll().stream()
@@ -40,6 +42,7 @@ public class DeliveryQueryService {
             .toList();
     }
 
+    @Cacheable("delivery-locations")
     public List<ZoneLocationView> locations() {
         Map<Long, List<String>> byZone = new LinkedHashMap<>();
         for (DeliveryZonePostalCode pc : postalCodes.findAll()) {

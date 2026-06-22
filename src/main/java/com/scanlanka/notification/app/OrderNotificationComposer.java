@@ -43,4 +43,13 @@ public class OrderNotificationComposer {
         notifications.enqueue("ADMIN_DISPATCH", adminEmail, dispatch.subject(), dispatch.body(),
             "dispatch:" + order.getId());
     }
+
+    public void resendReceipt(Order order, List<OrderItem> items) {
+        ReceiptModel model = receipts.buildModel(order, items);
+        receipts.ensurePdf(order, items);
+        String lookupUrl = frontendBaseUrl + "/orders/lookup";
+        EmailTemplateRenderer.RenderedEmail receipt = templates.orderReceipt(model, lookupUrl);
+        notifications.enqueue("ORDER_RECEIPT", order.getContactEmail(), receipt.subject(), receipt.body(),
+            "resend:" + order.getId() + ":" + System.nanoTime());
+    }
 }

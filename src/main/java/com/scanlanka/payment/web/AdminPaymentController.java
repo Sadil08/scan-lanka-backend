@@ -1,6 +1,7 @@
 package com.scanlanka.payment.web;
 
 import com.scanlanka.payment.app.BankTransferService;
+import com.scanlanka.payment.app.CodPaymentService;
 import com.scanlanka.shared.security.AuthPrincipal;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminPaymentController {
 
     private final BankTransferService bankTransfer;
+    private final CodPaymentService codPayments;
 
-    public AdminPaymentController(BankTransferService bankTransfer) {
+    public AdminPaymentController(BankTransferService bankTransfer, CodPaymentService codPayments) {
         this.bankTransfer = bankTransfer;
+        this.codPayments = codPayments;
     }
 
     public record ReviewRequest(String note) {}
@@ -36,6 +39,13 @@ public class AdminPaymentController {
                                        @RequestBody(required = false) ReviewRequest req,
                                        @AuthenticationPrincipal AuthPrincipal admin) {
         bankTransfer.reject(orderNumber, admin != null ? admin.userId() : null, note(req));
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{orderNumber}/cod-received")
+    public ResponseEntity<Void> codReceived(@PathVariable String orderNumber,
+                                            @AuthenticationPrincipal AuthPrincipal admin) {
+        codPayments.markCodReceived(orderNumber, admin != null ? admin.userId() : null);
         return ResponseEntity.ok().build();
     }
 

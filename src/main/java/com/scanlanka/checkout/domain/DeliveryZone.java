@@ -32,10 +32,22 @@ public class DeliveryZone {
 
     protected DeliveryZone() {}
 
+    public DeliveryZone(String name, long baseChargeCents, long perKgChargeCents, BigDecimal fuelPct, boolean active) {
+        update(name, baseChargeCents, perKgChargeCents, fuelPct, active);
+    }
+
     public Long getId() { return id; }
     public String getName() { return name; }
     public long getBaseChargeCents() { return baseChargeCents; }
     public long getPerKgChargeCents() { return perKgChargeCents; }
     public BigDecimal getFuelPct() { return fuelPct; }
     public boolean isActive() { return active; }
+
+    public void update(String name, long baseChargeCents, long perKgChargeCents, java.math.BigDecimal fuelPct, boolean active) {
+        this.name = name;
+        this.baseChargeCents = baseChargeCents;
+        this.perKgChargeCents = perKgChargeCents;
+        this.fuelPct = fuelPct != null ? fuelPct : java.math.BigDecimal.ZERO;
+        this.active = active;
+    }
 }

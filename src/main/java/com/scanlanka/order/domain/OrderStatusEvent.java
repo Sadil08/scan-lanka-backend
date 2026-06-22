@@ -52,5 +52,6 @@ public class OrderStatusEvent {
     public Long getId() { return id; }
     public String getFromStatus() { return fromStatus; }
     public String getToStatus() { return toStatus; }
+    public String getNote() { return note; }
     public Instant getCreatedAt() { return createdAt; }
 }

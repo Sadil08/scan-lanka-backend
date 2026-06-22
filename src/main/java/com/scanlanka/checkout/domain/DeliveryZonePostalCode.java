@@ -19,6 +19,11 @@ public class DeliveryZonePostalCode {
 
     protected DeliveryZonePostalCode() {}
 
+    public DeliveryZonePostalCode(String postalCode, Long zoneId) {
+        this.postalCode = postalCode;
+        this.zoneId = zoneId;
+    }
+
     public String getPostalCode() { return postalCode; }
     public Long getZoneId() { return zoneId; }
 }

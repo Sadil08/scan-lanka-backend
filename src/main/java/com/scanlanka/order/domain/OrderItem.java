@@ -38,6 +38,9 @@ public class OrderItem {
     @Column(name = "line_total_cents", nullable = false)
     private long lineTotalCents;
 
+    @Column(nullable = false)
+    private String status = OrderItemStatus.PENDING.name();
+
     protected OrderItem() {}
 
     public OrderItem(Long orderId, Long productId, Long variantId, String sku, String name,
@@ -63,4 +66,6 @@ public class OrderItem {
     public long getUnitPriceCents() { return unitPriceCents; }
     public int getQuantity() { return quantity; }
     public long getLineTotalCents() { return lineTotalCents; }
+    public String getStatus() { return status; }
+    public void setStatus(OrderItemStatus status) { this.status = status.name(); }
 }

@@ -65,6 +65,9 @@ public class Order {
     private DeliveryPayment deliveryPayment = DeliveryPayment.PREPAID;
     @Column(name = "delivery_cod_cents", nullable = false) private long deliveryCodCents;
 
+    @Column(name = "actual_delivery_cents") private Long actualDeliveryCents;
+    @Column(name = "delivery_courier") private String deliveryCourier;
+
     @Column(name = "carrier") private String carrier;
     @Column(name = "tracking_ref") private String trackingRef;
 
@@ -103,6 +106,8 @@ public class Order {
     public long getTaxCents() { return taxCents; }
     public long getTotalCents() { return totalCents; }
     public long getDeliveryCodCents() { return deliveryCodCents; }
+    public Long getActualDeliveryCents() { return actualDeliveryCents; }
+    public String getDeliveryCourier() { return deliveryCourier; }
     public String getCarrier() { return carrier; }
     public String getTrackingRef() { return trackingRef; }
     public Instant getCreatedAt() { return createdAt; }
@@ -135,6 +140,10 @@ public class Order {
     }
     public void setDeliveryPayment(DeliveryPayment dp) { this.deliveryPayment = dp; }
     public void setDeliveryCodCents(long v) { this.deliveryCodCents = v; }
+    public void setActualDelivery(Long cents, String courier) {
+        this.actualDeliveryCents = cents;
+        this.deliveryCourier = courier;
+    }
     public void setPaidAt(Instant v) { this.paidAt = v; }
     public void setConfirmedAt(Instant v) { this.confirmedAt = v; }
 }

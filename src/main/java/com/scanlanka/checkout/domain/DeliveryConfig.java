@@ -31,4 +31,12 @@ public class DeliveryConfig {
     public long getFragileSurchargeCents() { return fragileSurchargeCents; }
     public long getOversizeSurchargeCents() { return oversizeSurchargeCents; }
     public int getDimDivisor() { return dimDivisor; }
+
+    public void update(long pickFirst, long pickNext, long fragile, long oversize, int dimDivisor) {
+        this.pickFirstCents = pickFirst;
+        this.pickNextCents = pickNext;
+        this.fragileSurchargeCents = fragile;
+        this.oversizeSurchargeCents = oversize;
+        this.dimDivisor = dimDivisor;
+    }
 }
