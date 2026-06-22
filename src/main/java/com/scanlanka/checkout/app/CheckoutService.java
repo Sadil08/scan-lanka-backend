@@ -41,10 +41,12 @@ public class CheckoutService {
     private final TaxConfigRepository taxConfigs;
     private final DeliveryCostEngine deliveryEngine;
     private final OrderService orderService;
+    private final StockReservationService reservations;
 
     public CheckoutService(ProductLookupService catalog, DeliveryZoneRepository zones,
                            DeliveryZonePostalCodeRepository postalCodes, DeliveryConfigRepository deliveryConfigs,
-                           TaxConfigRepository taxConfigs, DeliveryCostEngine deliveryEngine, OrderService orderService) {
+                           TaxConfigRepository taxConfigs, DeliveryCostEngine deliveryEngine, OrderService orderService,
+                           StockReservationService reservations) {
         this.catalog = catalog;
         this.zones = zones;
         this.postalCodes = postalCodes;
@@ -52,6 +54,7 @@ public class CheckoutService {
         this.taxConfigs = taxConfigs;
         this.deliveryEngine = deliveryEngine;
         this.orderService = orderService;
+        this.reservations = reservations;
     }
 
     public record ItemInput(Long productId, Long variantId, int quantity) {}
@@ -123,6 +126,7 @@ public class CheckoutService {
             q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), q.totalCents(),
             in.deliveryPayment(), q.deliveryCodCents());
         Order order = orderService.createDraft(cmd);
+        reservations.reserveForOrder(order.getId(), snapshots);
         return new Placed(order.getOrderNumber(), q.totalCents());
     }
 
@@ -144,7 +148,8 @@ public class CheckoutService {
                 .filter(i -> i.productId().equals(l.productId())
                     && java.util.Objects.equals(i.variantId(), l.variantId()))
                 .mapToInt(ItemInput::quantity).findFirst().orElse(1);
-            int qty = (l.stock() != null) ? Math.min(requested, Math.max(l.stock(), 0)) : requested;
+            int available = reservations.availableQuantity(l.productId(), l.variantId(), l.stock());
+            int qty = available == Integer.MAX_VALUE ? requested : Math.min(requested, available);
             if (qty < 1) continue;
             out.add(new long[] { l.unitPriceCents(), qty, l.unitPriceCents() * (long) qty });
         }

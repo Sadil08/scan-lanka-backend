@@ -2,6 +2,7 @@ package com.scanlanka.order.web;
 
 import com.scanlanka.order.app.OrderQueryService;
 import com.scanlanka.order.app.OrderQueryService.OrderStatusView;
+import com.scanlanka.order.web.dto.OrderResponses.OrderDetailView;
 import com.scanlanka.shared.ratelimit.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -31,6 +32,12 @@ public class OrderLookupController {
     public OrderStatusView lookup(@Valid @RequestBody LookupRequest req, HttpServletRequest http) {
         rateLimiter.check("orderlookup:" + ip(http), 20, 300);   // anti-enumeration (T-4/T-13)
         return query.lookup(req.orderNumber(), req.email());
+    }
+
+    @PostMapping("/lookup/detail")
+    public OrderDetailView lookupDetail(@Valid @RequestBody LookupRequest req, HttpServletRequest http) {
+        rateLimiter.check("orderlookup:" + ip(http), 20, 300);
+        return query.lookupDetail(req.orderNumber(), req.email());
     }
 
     private static String ip(HttpServletRequest request) {

@@ -1,9 +1,11 @@
 package com.scanlanka.catalog.infra;
 
 import com.scanlanka.catalog.domain.Product;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +21,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // Storefront sees only visible products (02-storefront-browse).
     Page<Product> findByActiveTrueAndArchivedFalse(Pageable pageable);
     Optional<Product> findBySlugAndActiveTrueAndArchivedFalse(String slug);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Product p WHERE p.id = :id")
+    Optional<Product> findByIdForUpdate(@Param("id") Long id);
 
     @Query("SELECT DISTINCT p.category FROM Product p WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL ORDER BY p.category")
     List<String> findDistinctVisibleCategories();

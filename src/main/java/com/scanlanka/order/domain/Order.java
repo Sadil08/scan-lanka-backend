@@ -103,6 +103,9 @@ public class Order {
     public long getTaxCents() { return taxCents; }
     public long getTotalCents() { return totalCents; }
     public long getDeliveryCodCents() { return deliveryCodCents; }
+    public String getCarrier() { return carrier; }
+    public String getTrackingRef() { return trackingRef; }
+    public Instant getCreatedAt() { return createdAt; }
     public String getShipStreet() { return shipStreet; }
     public String getShipCity() { return shipCity; }
     public String getShipProvince() { return shipProvince; }
