@@ -1,0 +1,17 @@
+# Production profile — enable via SPRING_PROFILES_ACTIVE=prod (Phase 11 GA hardening).
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+app:
+  auth:
+    cookie-secure: true
+  db-role-check:
+    enabled: true
+    fail-on-violation: true
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never

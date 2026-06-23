@@ -57,7 +57,9 @@ public class SecurityConfig {
                     "camera=(), microphone=(), geolocation=()"))
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health/**", "/actuator/info", "/api/ping").permitAll()
+                .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")           // metrics gated (global/04)
+                .requestMatchers("/api/ping", "/api/csp-report").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()              // public auth endpoints
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")        // role-gated server-side (SEC-ADMIN)
                 // Remaining endpoints are added per feature with their own rules; default permit for now.

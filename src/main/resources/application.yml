@@ -35,19 +35,25 @@ server:
     encoding:
       charset: UTF-8
 
-# Actuator: health public-ish; everything else ADMIN-gated later (global/04)
+# Actuator: health public-ish; prometheus ADMIN-gated (global/04)
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 # App-specific config (filled per phase)
 app:
+  db-role-check:
+    enabled: ${DB_ROLE_CHECK:false}
+    fail-on-violation: true
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   storage:
