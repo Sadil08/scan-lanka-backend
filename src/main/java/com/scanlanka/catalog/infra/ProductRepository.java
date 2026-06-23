@@ -37,6 +37,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("update Product p set p.stockQty = p.stockQty - :qty where p.id = :id and p.stockQty >= :qty")
     int decrementIfAvailable(@Param("id") Long id, @Param("qty") int qty);
 
+    /** Atomic restock after cancel/refund (16 FR-RETURN-4). */
+    @Modifying(clearAutomatically = true)
+    @Query("update Product p set p.stockQty = p.stockQty + :qty where p.id = :id and p.stockQty is not null")
+    int incrementStock(@Param("id") Long id, @Param("qty") int qty);
+
     @Query("SELECT p FROM Product p WHERE p.archived = false AND p.stockQty IS NOT NULL AND p.stockQty <= :max ORDER BY p.stockQty ASC")
     List<Product> findLowStock(@Param("max") int max);
 }

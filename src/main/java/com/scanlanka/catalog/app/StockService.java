@@ -37,6 +37,20 @@ public class StockService {
         }
     }
 
+    /** Restock on cancel/refund when disposition is RESTOCK (16 FR-RETURN-4). */
+    @Transactional
+    public void increment(Long productId, Long variantId, int qty) {
+        if (variantId != null) {
+            ProductVariant v = variants.findById(variantId).orElse(null);
+            if (v == null || v.getStockQty() == null) return;
+            variants.incrementStock(variantId, qty);
+        } else if (productId != null) {
+            Product p = products.findById(productId).orElse(null);
+            if (p == null || p.getStockQty() == null) return;
+            products.incrementStock(productId, qty);
+        }
+    }
+
     private static ResponseStatusException oversold() {
         return new ResponseStatusException(HttpStatus.CONFLICT, "OVERSOLD");
     }

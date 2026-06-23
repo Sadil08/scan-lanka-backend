@@ -10,6 +10,7 @@ import com.scanlanka.order.web.dto.OrderResponses.OrderDetailView;
 import com.scanlanka.order.web.dto.OrderResponses.OrderLineView;
 import com.scanlanka.order.web.dto.OrderResponses.OrderSummaryView;
 import com.scanlanka.order.web.dto.OrderResponses.StatusEventView;
+import com.scanlanka.returns.infra.RefundRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +26,16 @@ public class OrderQueryService {
     private final OrderItemRepository items;
     private final OrderStatusEventRepository events;
     private final OrderNumberService orderNumbers;
+    private final RefundRepository refunds;
 
     public OrderQueryService(OrderRepository orders, OrderItemRepository items,
-                             OrderStatusEventRepository events, OrderNumberService orderNumbers) {
+                             OrderStatusEventRepository events, OrderNumberService orderNumbers,
+                             RefundRepository refunds) {
         this.orders = orders;
         this.items = items;
         this.events = events;
         this.orderNumbers = orderNumbers;
+        this.refunds = refunds;
     }
 
     public record OrderStatusView(String orderNumber, String status, long totalCents) {}
@@ -40,7 +44,7 @@ public class OrderQueryService {
     public List<OrderSummaryView> listForCustomer(long customerId) {
         return orders.findByCustomerIdOrderByCreatedAtDesc(customerId).stream()
             .map(o -> new OrderSummaryView(o.getOrderNumber(), o.getStatus().name(),
-                o.getTotalCents(), o.getCreatedAt()))
+                o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getCreatedAt()))
             .toList();
     }
 
@@ -78,7 +82,7 @@ public class OrderQueryService {
             .toList();
         return new OrderDetailView(
             o.getOrderNumber(), o.getStatus().name(), o.getSubtotalCents(), o.getDeliveryCents(),
-            o.getTaxCents(), o.getTotalCents(), o.getDeliveryCodCents(),
+            o.getTaxCents(), o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getDeliveryCodCents(),
             o.getFulfilmentType().name(), o.getDeliveryPayment().name(),
             o.getCarrier(), o.getTrackingRef(),
             o.getShipStreet(), o.getShipCity(), o.getShipProvince(), o.getShipPostalCode(),
