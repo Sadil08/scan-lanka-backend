@@ -73,6 +73,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
         <!-- JWT (httpOnly cookie access tokens — 07-auth) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -103,6 +107,13 @@
             <groupId>com.openhtmltopdf</groupId>
             <artifactId>openhtmltopdf-pdfbox</artifactId>
             <version>1.0.10</version>
+        </dependency>
+
+        <!-- CMS HTML sanitization (15 SEC-CONTENT-1) -->
+        <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20240325.1</version>
         </dependency>
 
         <!-- Test -->

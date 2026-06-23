@@ -12,6 +12,8 @@ public class CatalogCacheConfig {
 
     @Bean
     CacheManager cacheManager() {
-        return new ConcurrentMapCacheManager("catalog-list", "catalog-detail", "catalog-facets", "geo");
+        return new ConcurrentMapCacheManager(
+            "catalog-list", "catalog-detail", "catalog-facets", "geo", "home", "content",
+            "delivery-postal", "delivery-locations");
     }
 }
