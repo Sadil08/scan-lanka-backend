@@ -79,3 +79,10 @@ app:
     otp-max-attempts: 5
     initial-admin-email: ${INITIAL_ADMIN_EMAIL:}
     initial-admin-password: ${INITIAL_ADMIN_PASSWORD:}
+  captcha:
+    secret: ${CAPTCHA_SECRET:test-captcha-bypass}
+  quote:
+    token-secret: ${QUOTE_TOKEN_SECRET:dev-only-quote-token-secret-change-me}
+  geo:
+    provider: ${GEO_PROVIDER:stub}   # stub | ip-api
+    ip-api-base: ${GEO_IP_API_BASE:https://ip-api.com}
