@@ -52,6 +52,8 @@ public class NotificationWorker {
     }
 
     private static long backoffSeconds(int attempt) {
-        return (long) Math.min(3600, Math.pow(2, attempt) * 30); // 30s, 60s, 120s … capped 1h
+        // First retry is immediate (transient blips clear fast); then exponential: 30s, 60s, 120s … capped 1h.
+        if (attempt <= 0) return 0;
+        return (long) Math.min(3600, Math.pow(2, attempt - 1) * 30);
     }
 }

@@ -1,5 +1,6 @@
 package com.scanlanka.auth;
 
+import com.scanlanka.AbstractIntegrationTest;
 import com.scanlanka.auth.infra.AppUserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

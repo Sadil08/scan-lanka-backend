@@ -155,7 +155,7 @@ class RefundIT extends AbstractIntegrationTest {
 
     private long createProduct(int stock) {
         return productService.create(new CreateProductRequest(
-            null, "Return " + System.nanoTime(), null, null, null, "X", null, stock, 250L,
+            null, "Return " + System.nanoTime(), null, null, null, "X", null, stock, 500L,
             List.of(), List.of()));
     }
 
@@ -171,7 +171,7 @@ class RefundIT extends AbstractIntegrationTest {
         mvc.perform(post("/api/payments/payhere/notify").contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("merchant_id", MID).param("order_id", orderNumber)
                 .param("payhere_amount", amount).param("payhere_currency", "LKR")
-                .param("status_code", "2").param("md5sig", sig).param("payment_id", "PH-R"))
+                .param("status_code", "2").param("md5sig", sig).param("payment_id", "PH-" + orderNumber))
             .andExpect(status().isOk());
         return orderNumber;
     }

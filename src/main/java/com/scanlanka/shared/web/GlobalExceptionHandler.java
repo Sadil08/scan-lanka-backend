@@ -6,6 +6,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Central error handling → uniform {code,message} (global/02 §4, global/09 §4).
@@ -32,9 +33,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR", message));
     }
 
+    /** Unmatched route → 404, not the catch-all 500 below. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiError> handleNoResource(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError("NOT_FOUND", "Not found"));
+    }
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
         // Log the real cause server-side (no PII); return a generic message to the client.
+        log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(new ApiError("INTERNAL_ERROR", "Something went wrong"));
     }

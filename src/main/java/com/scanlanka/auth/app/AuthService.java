@@ -55,8 +55,8 @@ public class AuthService {
         if (!users.existsByEmailIgnoreCase(email)) {
             AppUser u = users.save(new AppUser(email.toLowerCase(), encoder.encode(rawPassword), name, Role.CUSTOMER));
             String code = otp.issue(u.getId(), Purpose.EMAIL_VERIFY);
-            var email = emailTemplates.emailVerify(name, code);
-            notifications.enqueue("EMAIL_VERIFY", u.getEmail(), email.subject(), email.body(),
+            var mail = emailTemplates.emailVerify(name, code);
+            notifications.enqueue("EMAIL_VERIFY", u.getEmail(), mail.subject(), mail.body(),
                 "verify:" + u.getId() + ":" + System.nanoTime());
         }
         // else: do nothing, but respond identically (no enumeration oracle)
@@ -118,8 +118,8 @@ public class AuthService {
     public void forgotPassword(String email) {
         users.findByEmailIgnoreCase(email).ifPresent(u -> {
             String code = otp.issue(u.getId(), Purpose.PASSWORD_RESET);
-            var email = emailTemplates.passwordReset(code);
-            notifications.enqueue("PASSWORD_RESET", u.getEmail(), email.subject(), email.body(),
+            var mail = emailTemplates.passwordReset(code);
+            notifications.enqueue("PASSWORD_RESET", u.getEmail(), mail.subject(), mail.body(),
                 "reset:" + u.getId() + ":" + System.nanoTime());
         });
     }

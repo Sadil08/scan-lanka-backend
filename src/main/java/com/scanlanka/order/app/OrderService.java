@@ -78,7 +78,10 @@ public class OrderService {
         order.setStatus(to);
         if (to == OrderStatus.PAID) order.setPaidAt(Instant.now());
         if (to == OrderStatus.CONFIRMED) order.setConfirmedAt(Instant.now());
-        orders.save(order);
+        // saveAndFlush: the status change must hit the DB now. Callers (e.g. payment confirm) run a
+        // subsequent @Modifying(clearAutomatically=true) stock query that would otherwise clear this
+        // still-dirty entity from the persistence context and silently drop the status UPDATE.
+        orders.saveAndFlush(order);
         events.save(new OrderStatusEvent(orderId, from, to, actorType, actorId, note));
     }
 

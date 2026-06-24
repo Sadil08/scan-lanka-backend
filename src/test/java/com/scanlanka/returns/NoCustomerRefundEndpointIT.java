@@ -3,6 +3,7 @@ package com.scanlanka.returns;
 import com.scanlanka.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -12,10 +13,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** SEC-RETURN-2: no customer-facing cancel/refund routes. */
-class NoCustomerRefundEndpointTest extends AbstractIntegrationTest {
+class NoCustomerRefundEndpointIT extends AbstractIntegrationTest {
 
     @Autowired MockMvc mvc;
-    @Autowired RequestMappingHandlerMapping handlerMapping;
+    @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMapping;
 
     @Test
     void customerPathsReturnNotFound() throws Exception {

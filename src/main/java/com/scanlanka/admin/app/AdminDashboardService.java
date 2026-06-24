@@ -29,18 +29,18 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true)
     public DashboardView dashboard() {
-        long pending = orders.countByStatus(OrderStatus.PENDING_PAYMENT.name())
-            + orders.countByStatus(OrderStatus.PAYMENT_FAILED.name())
-            + orders.countByStatus(OrderStatus.BANK_SLIP_REJECTED.name());
-        long awaitingBank = orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION.name());
-        long paid = orders.countByStatus(OrderStatus.PAID.name())
-            + orders.countByStatus(OrderStatus.CONFIRMED.name());
-        long inFulfilment = orders.countByStatus(OrderStatus.PACKED.name())
-            + orders.countByStatus(OrderStatus.SHIPPED.name())
-            + orders.countByStatus(OrderStatus.READY_FOR_PICKUP.name())
-            + orders.countByStatus(OrderStatus.DELIVERY_FAILED.name());
-        long delivered = orders.countByStatus(OrderStatus.COMPLETED.name());
-        long cancelled = orders.countByStatus(OrderStatus.CANCELLED.name());
+        long pending = orders.countByStatus(OrderStatus.PENDING_PAYMENT)
+            + orders.countByStatus(OrderStatus.PAYMENT_FAILED)
+            + orders.countByStatus(OrderStatus.BANK_SLIP_REJECTED);
+        long awaitingBank = orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION);
+        long paid = orders.countByStatus(OrderStatus.PAID)
+            + orders.countByStatus(OrderStatus.CONFIRMED);
+        long inFulfilment = orders.countByStatus(OrderStatus.PACKED)
+            + orders.countByStatus(OrderStatus.SHIPPED)
+            + orders.countByStatus(OrderStatus.READY_FOR_PICKUP)
+            + orders.countByStatus(OrderStatus.DELIVERY_FAILED);
+        long delivered = orders.countByStatus(OrderStatus.COMPLETED);
+        long cancelled = orders.countByStatus(OrderStatus.CANCELLED);
         List<LowStockItem> low = products.findLowStock(LOW_STOCK_THRESHOLD).stream()
             .map(AdminDashboardService::toLowStock).toList();
         return new DashboardView(pending, awaitingBank, paid, inFulfilment, delivered, cancelled, low);

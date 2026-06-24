@@ -45,6 +45,9 @@ public class SecurityConfig {
             .headers(h -> h
                 .frameOptions(f -> f.deny())                                   // clickjacking (T-7)
                 .httpStrictTransportSecurity(hsts -> hsts                       // HTTPS/HSTS (T-13b)
+                    // emit on every response: TLS is terminated at the proxy, so the app sees plain
+                    // HTTP and Spring's default secure-only matcher would otherwise suppress HSTS.
+                    .requestMatcher(org.springframework.security.web.util.matcher.AnyRequestMatcher.INSTANCE)
                     .includeSubDomains(true).maxAgeInSeconds(31_536_000))
                 .referrerPolicy(r -> r.policy(
                     org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter

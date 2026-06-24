@@ -33,7 +33,7 @@ public class AdminProvisioner implements ApplicationRunner {
         provisionIfNeeded();
     }
 
-    void provisionIfNeeded() {
+    public void provisionIfNeeded() {
         String email = props.initialAdminEmail();
         String password = props.initialAdminPassword();
         if (email == null || email.isBlank() || password == null || password.isBlank()) {

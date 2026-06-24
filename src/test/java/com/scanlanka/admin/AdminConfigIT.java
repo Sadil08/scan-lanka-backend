@@ -41,7 +41,7 @@ class AdminConfigIT extends AbstractIntegrationTest {
             List.of(), List.of()));
 
         String checkout = "{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-            + "\"fulfilmentType\":\"DELIVERY\",\"deliveryPayment\":\"PREPAID\","
+            + "\"fulfilmentType\":\"DELIVERY\",\"deliveryPayment\":\"PREPAID\",\"postalCode\":\"00100\","
             + "\"ship\":{\"street\":\"1\",\"city\":\"Col\",\"province\":\"WP\",\"postalCode\":\"00100\"},"
             + "\"contactName\":\"A\",\"contactPhone\":\"+9477\",\"contactEmail\":\"a@x.lk\"}";
 

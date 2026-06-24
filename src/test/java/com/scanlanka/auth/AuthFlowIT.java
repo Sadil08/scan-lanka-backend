@@ -103,7 +103,7 @@ class AuthFlowIT extends AbstractIntegrationTest {
         String body = notifications.findAll().stream()
             .filter(n -> n.getRecipient().equalsIgnoreCase(email))
             .findFirst().orElseThrow().getBody();
-        String code = body.replaceAll(".*code is: (\\d{6}).*", "$1");
+        String code = body.replaceAll("(?s).*code is:\\D*(\\d{6}).*", "$1");
 
         mvc.perform(post("/api/auth/verify-email").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"" + email + "\",\"code\":\"" + code + "\"}"))

@@ -38,6 +38,9 @@ class ProviderDownIT extends AbstractIntegrationTest {
     static void payhere(DynamicPropertyRegistry r) {
         r.add("app.payhere.merchant-id", () -> MID);
         r.add("app.payhere.merchant-secret", () -> SECRET);
+        // Neutralize the @Scheduled poll so this test deterministically controls draining via worker.drain();
+        // otherwise the background poll races for the shared queue + SEND_ATTEMPTS counter.
+        r.add("app.notifications.poll-ms", () -> "3600000");
     }
 
     @TestConfiguration

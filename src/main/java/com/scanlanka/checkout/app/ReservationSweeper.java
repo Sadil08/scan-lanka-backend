@@ -1,6 +1,5 @@
 package com.scanlanka.checkout.app;
 
-import com.scanlanka.checkout.infra.StockReservationRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -8,14 +7,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReservationSweeper {
 
-    private final StockReservationRepository reservations;
+    private final StockReservationService reservations;
 
-    public ReservationSweeper(StockReservationRepository reservations) {
+    public ReservationSweeper(StockReservationService reservations) {
         this.reservations = reservations;
     }
 
     @Scheduled(fixedDelayString = "${scanlanka.reservation-sweep-ms:60000}")
     public void sweep() {
-        reservations.releaseExpired(java.time.Instant.now());
+        // delegate to the @Transactional service: the @Modifying release query needs a tx
+        reservations.releaseExpired();
     }
 }

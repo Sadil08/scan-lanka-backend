@@ -67,6 +67,7 @@ public class QuoteRequest {
     public String getMessage() { return message; }
     public String getStatus() { return status; }
     public Long getQuotedTotalCents() { return quotedTotalCents; }
+    public Long getCustomerId() { return customerId; }
     public String getAccessTokenHash() { return accessTokenHash; }
     public Instant getExpiresAt() { return expiresAt; }
     public Long getConvertedOrderId() { return convertedOrderId; }

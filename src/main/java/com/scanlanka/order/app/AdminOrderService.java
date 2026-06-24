@@ -138,10 +138,10 @@ public class AdminOrderService {
     @Transactional(readOnly = true)
     public DashboardCounts dashboardCounts() {
         return new DashboardCounts(
-            orders.countByStatus(OrderStatus.PENDING_PAYMENT.name()),
-            orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION.name()),
-            orders.countByStatus(OrderStatus.PAID.name()),
-            orders.countByStatus(OrderStatus.COMPLETED.name()));
+            orders.countByStatus(OrderStatus.PENDING_PAYMENT),
+            orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION),
+            orders.countByStatus(OrderStatus.PAID),
+            orders.countByStatus(OrderStatus.COMPLETED));
     }
 
     @Transactional(readOnly = true)

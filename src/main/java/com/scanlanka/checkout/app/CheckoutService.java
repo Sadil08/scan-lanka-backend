@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -72,9 +73,22 @@ public class CheckoutService {
     @Transactional(readOnly = true)
     public Quote quote(List<ItemInput> items, FulfilmentType fulfilmentType, String postalCode,
                        DeliveryPayment deliveryPayment) {
-        List<OrderLine> resolved = resolveLines(items);
-        List<long[]> priced = priceLines(items, resolved);     // [unitPrice, qty, lineTotal] per available line
-        long subtotal = priced.stream().mapToLong(p -> p[2]).sum();
+        return computeQuote(items, fulfilmentType, postalCode, deliveryPayment, false).quote();
+    }
+
+    /** A priced, stock-capped, deduped line plus the quote derived from a single pricing pass. */
+    private record PricedLine(OrderLine line, long unitPriceCents, int quantity, long lineTotalCents) {}
+    private record QuoteResult(Quote quote, List<PricedLine> lines) {}
+
+    /**
+     * Resolve + price every line exactly ONCE (so totals and the order snapshot can never disagree),
+     * after consolidating repeated (product, variant) inputs into a single line. Every total is
+     * server-computed.
+     */
+    private QuoteResult computeQuote(List<ItemInput> items, FulfilmentType fulfilmentType, String postalCode,
+                                     DeliveryPayment deliveryPayment, boolean strict) {
+        List<PricedLine> priced = priceLines(items, strict);
+        long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
 
         boolean serviceable = true;
         long delivery = 0;
@@ -83,7 +97,7 @@ public class CheckoutService {
             if (zone == null) {
                 serviceable = false;                            // not deliverable → block at place (FR-3b)
             } else {
-                delivery = deliveryEngine.compute(zone, loadDeliveryConfig(), deliveryItems(resolved, priced));
+                delivery = deliveryEngine.compute(zone, loadDeliveryConfig(), deliveryItems(priced));
             }
         }
 
@@ -96,28 +110,27 @@ public class CheckoutService {
         } else {
             total = subtotal + delivery + tax;
         }
-        return new Quote(subtotal, delivery, tax, total, deliveryCod, serviceable, priced.size());
+        Quote quote = new Quote(subtotal, delivery, tax, total, deliveryCod, serviceable, priced.size());
+        return new QuoteResult(quote, priced);
     }
 
     @Transactional
     public Placed place(PlaceInput in) {
         if (in.items() == null || in.items().isEmpty()) throw badRequest("EMPTY_CART");
         String postal = in.ship() != null ? in.ship().postalCode() : null;
-        Quote q = quote(in.items(), in.fulfilmentType(), postal, in.deliveryPayment());
+        // strict=true: a resolvable product that can't satisfy the requested qty (e.g. its last unit is
+        // already reserved) is a hard 409, not a silently-dropped line (FR-CHECKOUT-7).
+        QuoteResult qr = computeQuote(in.items(), in.fulfilmentType(), postal, in.deliveryPayment(), true);
+        Quote q = qr.quote();
         if (q.lineCount() == 0) throw badRequest("NO_AVAILABLE_ITEMS");
         if (in.fulfilmentType() == FulfilmentType.DELIVERY && !q.serviceable()) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "NOT_SERVICEABLE");
         }
 
-        List<OrderLine> resolved = resolveLines(in.items());
-        List<long[]> priced = priceLines(in.items(), resolved);
-        List<LineSnapshot> snapshots = new ArrayList<>();
-        for (int i = 0; i < resolved.size(); i++) {
-            OrderLine l = resolved.get(i);
-            long[] p = priced.get(i);
-            snapshots.add(new LineSnapshot(l.productId(), l.variantId(), l.sku(), l.name(),
-                l.handlingClass(), p[0], (int) p[1], p[2]));
-        }
+        List<LineSnapshot> snapshots = qr.lines().stream()
+            .map(p -> new LineSnapshot(p.line().productId(), p.line().variantId(), p.line().sku(),
+                p.line().name(), p.line().handlingClass(), p.unitPriceCents(), p.quantity(), p.lineTotalCents()))
+            .toList();
 
         CreateOrderCommand cmd = new CreateOrderCommand(
             in.customerId(), in.guestEmail(),
@@ -132,35 +145,44 @@ public class CheckoutService {
 
     // --- helpers ---
 
-    private List<OrderLine> resolveLines(List<ItemInput> items) {
-        List<OrderLine> out = new ArrayList<>();
+    private record LineKey(Long productId, Long variantId) {}
+
+    /**
+     * Consolidate repeated (product, variant) inputs, resolve each against the catalog, cap to
+     * available stock, and price — a single resolution/pricing pass. Insertion order is preserved.
+     * Lines with no resolvable product or non-positive quantity are dropped.
+     *
+     * <p>When {@code strict} (placement), a resolvable product that can't satisfy its requested qty
+     * (e.g. its last unit is already reserved) is a hard 409 rather than a silently-capped/dropped
+     * line; the lenient quote path just caps for display (FR-CHECKOUT-7).
+     */
+    private List<PricedLine> priceLines(List<ItemInput> items, boolean strict) {
+        LinkedHashMap<LineKey, Integer> requested = new LinkedHashMap<>();
         for (ItemInput it : items) {
-            catalog.resolveOrderLine(it.productId(), it.variantId()).ifPresent(out::add);
+            if (it.productId() == null || it.quantity() < 1) continue;
+            requested.merge(new LineKey(it.productId(), it.variantId()), it.quantity(), Integer::sum);
         }
-        return out;
-    }
-
-    /** Returns [unitPrice, cappedQty, lineTotal] per resolved (available) line, aligned to resolveLines order. */
-    private List<long[]> priceLines(List<ItemInput> items, List<OrderLine> resolved) {
-        List<long[]> out = new ArrayList<>();
-        for (OrderLine l : resolved) {
-            int requested = items.stream()
-                .filter(i -> i.productId().equals(l.productId())
-                    && java.util.Objects.equals(i.variantId(), l.variantId()))
-                .mapToInt(ItemInput::quantity).findFirst().orElse(1);
+        List<PricedLine> out = new ArrayList<>();
+        for (var entry : requested.entrySet()) {
+            LineKey key = entry.getKey();
+            OrderLine l = catalog.resolveOrderLine(key.productId(), key.variantId()).orElse(null);
+            if (l == null) continue;
             int available = reservations.availableQuantity(l.productId(), l.variantId(), l.stock());
-            int qty = available == Integer.MAX_VALUE ? requested : Math.min(requested, available);
+            if (strict && available < entry.getValue()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "STOCK_EXCEEDED");
+            }
+            int qty = available == Integer.MAX_VALUE ? entry.getValue() : Math.min(entry.getValue(), available);
             if (qty < 1) continue;
-            out.add(new long[] { l.unitPriceCents(), qty, l.unitPriceCents() * (long) qty });
+            out.add(new PricedLine(l, l.unitPriceCents(), qty, l.unitPriceCents() * (long) qty));
         }
         return out;
     }
 
-    private List<Item> deliveryItems(List<OrderLine> resolved, List<long[]> priced) {
+    private List<Item> deliveryItems(List<PricedLine> priced) {
         List<Item> items = new ArrayList<>();
-        for (int i = 0; i < priced.size(); i++) {
+        for (PricedLine p : priced) {
             // weight 0 until D-8 weights are supplied; handling class drives surcharges now
-            items.add(new Item(resolved.get(i).handlingClass(), (int) priced.get(i)[1], 0));
+            items.add(new Item(p.line().handlingClass(), p.quantity(), 0));
         }
         return items;
     }

@@ -10,7 +10,6 @@ import com.scanlanka.payment.domain.Payment;
 import com.scanlanka.payment.domain.PaymentEvent;
 import com.scanlanka.payment.infra.PaymentEventRepository;
 import com.scanlanka.payment.infra.PaymentRepository;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -87,11 +86,13 @@ public class PaymentService {
         boolean sigOk = hasher.verifyNotify(n.orderId(), n.amount(), n.currency(), n.statusCode(), n.md5sig());
         String ref = (n.paymentId() != null && !n.paymentId().isBlank()) ? n.paymentId() : n.orderId();
 
-        try {
-            events.saveAndFlush(new PaymentEvent("PAYHERE", ref, n.statusCode(), sigOk)); // idempotency (T-4)
-        } catch (DataIntegrityViolationException duplicate) {
+        // Idempotency (T-4): if this (provider, ref, status) was already handled, no-op. Check-then-insert
+        // in THIS transaction; the unique index is the race backstop. Done before any side effects so a
+        // replay never re-processes. (Inserting-and-catching would mark the tx rollback-only → commit 500.)
+        if (events.existsByProviderAndExternalRefAndStatusCode("PAYHERE", ref, n.statusCode())) {
             return; // already processed
         }
+        events.save(new PaymentEvent("PAYHERE", ref, n.statusCode(), sigOk));
         if (!sigOk) return; // forged/invalid signature → ignore (T-11)
 
         Order order = orders.findByOrderNumber(n.orderId()).orElse(null);
