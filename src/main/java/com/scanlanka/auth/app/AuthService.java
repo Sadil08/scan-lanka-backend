@@ -46,7 +46,8 @@ public class AuthService {
     }
 
     public record Tokens(String accessToken, String refreshToken) {}
-    public record MeView(long id, String email, String name, String role, boolean emailVerified) {}
+    public record MeView(long id, String email, String name, String role, boolean emailVerified,
+                         boolean totpEnabled) {}
     public record LoginResult(Tokens tokens, MeView me) {}
 
     /** Register a CUSTOMER (role server-set). Uniform behaviour whether or not the email exists. */
@@ -144,7 +145,8 @@ public class AuthService {
     }
 
     private static MeView toMeView(AppUser u) {
-        return new MeView(u.getId(), u.getEmail(), u.getName(), u.getRole().name(), u.isEmailVerified());
+        return new MeView(u.getId(), u.getEmail(), u.getName(), u.getRole().name(), u.isEmailVerified(),
+            u.isTotpEnabled());
     }
 
     private Tokens issueTokens(AppUser u) {
