@@ -31,10 +31,12 @@ public class AuthService {
     private final TotpService totp;
     private final NotificationService notifications;
     private final EmailTemplateRenderer emailTemplates;
+    private final AuthProperties authProperties;
 
     public AuthService(AppUserRepository users, PasswordEncoder encoder, JwtService jwt,
                        RefreshTokenService refreshTokens, OneTimeCodeService otp, TotpService totp,
-                       NotificationService notifications, EmailTemplateRenderer emailTemplates) {
+                       NotificationService notifications, EmailTemplateRenderer emailTemplates,
+                       AuthProperties authProperties) {
         this.users = users;
         this.encoder = encoder;
         this.jwt = jwt;
@@ -43,11 +45,12 @@ public class AuthService {
         this.totp = totp;
         this.notifications = notifications;
         this.emailTemplates = emailTemplates;
+        this.authProperties = authProperties;
     }
 
     public record Tokens(String accessToken, String refreshToken) {}
     public record MeView(long id, String email, String name, String role, boolean emailVerified,
-                         boolean totpEnabled) {}
+                         boolean totpEnabled, boolean adminTotpRequired) {}
     public record LoginResult(Tokens tokens, MeView me) {}
 
     /** Register a CUSTOMER (role server-set). Uniform behaviour whether or not the email exists. */
@@ -144,9 +147,9 @@ public class AuthService {
         return toMeView(u);
     }
 
-    private static MeView toMeView(AppUser u) {
+    private MeView toMeView(AppUser u) {
         return new MeView(u.getId(), u.getEmail(), u.getName(), u.getRole().name(), u.isEmailVerified(),
-            u.isTotpEnabled());
+            u.isTotpEnabled(), authProperties.adminTotpRequired());
     }
 
     private Tokens issueTokens(AppUser u) {

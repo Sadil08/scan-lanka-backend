@@ -1,5 +1,6 @@
 package com.scanlanka.auth.web;
 
+import com.scanlanka.auth.app.AuthProperties;
 import com.scanlanka.auth.domain.AppUser;
 import com.scanlanka.auth.infra.AppUserRepository;
 import com.scanlanka.shared.security.AuthPrincipal;
@@ -23,15 +24,17 @@ import java.io.IOException;
 public class AdminTotpEnforcementFilter extends OncePerRequestFilter {
 
     private final AppUserRepository users;
+    private final AuthProperties props;
 
-    public AdminTotpEnforcementFilter(AppUserRepository users) {
+    public AdminTotpEnforcementFilter(AppUserRepository users, AuthProperties props) {
         this.users = users;
+        this.props = props;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return !path.startsWith("/api/admin/");
+        // Skip entirely when admin TOTP is not required (dev), or for non-admin paths.
+        return !props.adminTotpRequired() || !request.getRequestURI().startsWith("/api/admin/");
     }
 
     @Override

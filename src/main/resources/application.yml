@@ -85,6 +85,9 @@ app:
     otp-max-attempts: 5
     initial-admin-email: ${INITIAL_ADMIN_EMAIL:}
     initial-admin-password: ${INITIAL_ADMIN_PASSWORD:}
+    # Admin 2FA (TOTP) enforcement. Disabled for local development; MUST be true in production —
+    # set ADMIN_TOTP_REQUIRED=true (07 FR-AUTH-10).
+    admin-totp-required: ${ADMIN_TOTP_REQUIRED:false}
   captcha:
     secret: ${CAPTCHA_SECRET:test-captcha-bypass}
   quote:

@@ -18,6 +18,11 @@ public record AuthProperties(
     @DefaultValue("5") int otpMaxAttempts,
     /** Optional — seeds the first ADMIN when no admin exists (07 T-15). */
     @DefaultValue("") String initialAdminEmail,
-    @DefaultValue("") String initialAdminPassword
+    @DefaultValue("") String initialAdminPassword,
+    /**
+     * Gate for admin TOTP enforcement (07 FR-AUTH-10). Default true; can be disabled during local
+     * development via app.auth.admin-totp-required=false. MUST be true in production.
+     */
+    @DefaultValue("true") boolean adminTotpRequired
 ) {
 }

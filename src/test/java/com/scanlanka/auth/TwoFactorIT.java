@@ -5,6 +5,7 @@ import com.scanlanka.auth.infra.AppUserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Admin TOTP enrolment unlocks /api/admin/** (07 FR-AUTH-10). */
+@TestPropertySource(properties = "app.auth.admin-totp-required=true")
 class TwoFactorIT extends AbstractIntegrationTest {
 
     @Autowired MockMvc mvc;
