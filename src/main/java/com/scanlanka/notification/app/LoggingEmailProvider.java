@@ -15,7 +15,8 @@ public class LoggingEmailProvider implements EmailProvider {
 
     @Override
     public void send(String to, String subject, String body) {
-        log.info("[email] to={} subject=\"{}\" ({} chars)", redact(to), subject, body.length());
+        // Dev provider: log the full body so OTP/reset codes are visible locally (no real SMTP yet).
+        log.info("[email] to={} subject=\"{}\"\n{}", redact(to), subject, body);
     }
 
     private static String redact(String email) {
