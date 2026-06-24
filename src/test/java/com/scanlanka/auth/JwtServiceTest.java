@@ -13,7 +13,7 @@ class JwtServiceTest {
 
     private final AuthProperties props = new AuthProperties(
         "test-secret-please-rotate-32+bytes-minimum-key", "scanlanka", "scanlanka-web",
-        15, 14, true, "sl_at", "sl_rt", 10, 5, "", "");
+        15, 14, true, "sl_at", "sl_rt", 10, 5, "", "", true);
     private final JwtService jwt = new JwtService(props);
 
     private AppUser admin() {
@@ -44,7 +44,7 @@ class JwtServiceTest {
         String token = jwt.issueAccessToken(admin());
         AuthProperties other = new AuthProperties(
             "a-completely-different-secret-key-32+bytes-x", "scanlanka", "scanlanka-web",
-            15, 14, true, "sl_at", "sl_rt", 10, 5, "", "");
+            15, 14, true, "sl_at", "sl_rt", 10, 5, "", "", true);
         JwtService otherJwt = new JwtService(other);
         assertThatThrownBy(() -> otherJwt.parse(token))
             .isInstanceOf(JwtService.InvalidTokenException.class);

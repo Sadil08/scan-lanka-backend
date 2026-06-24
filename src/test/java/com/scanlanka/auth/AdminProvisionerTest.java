@@ -26,7 +26,7 @@ class AdminProvisionerTest {
         AuthProperties props = new AuthProperties(
             "secret-key-32-bytes-minimum-for-testing-x", "scanlanka", "scanlanka-web",
             15, 14, true, "sl_at", "sl_rt", 10, 5,
-            "admin@scanlanka.lk", "AdminPass123!");
+            "admin@scanlanka.lk", "AdminPass123!", true);
         when(users.existsByRole(Role.ADMIN)).thenReturn(false);
         when(users.existsByEmailIgnoreCase("admin@scanlanka.lk")).thenReturn(false);
         when(users.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -43,7 +43,7 @@ class AdminProvisionerTest {
         AuthProperties props = new AuthProperties(
             "secret-key-32-bytes-minimum-for-testing-x", "scanlanka", "scanlanka-web",
             15, 14, true, "sl_at", "sl_rt", 10, 5,
-            "admin@scanlanka.lk", "AdminPass123!");
+            "admin@scanlanka.lk", "AdminPass123!", true);
         when(users.existsByRole(Role.ADMIN)).thenReturn(true);
 
         new AdminProvisioner(users, encoder, props).provisionIfNeeded();
@@ -57,7 +57,7 @@ class AdminProvisionerTest {
         var encoder = new BCryptPasswordEncoder(12);
         AuthProperties props = new AuthProperties(
             "secret-key-32-bytes-minimum-for-testing-x", "scanlanka", "scanlanka-web",
-            15, 14, true, "sl_at", "sl_rt", 10, 5, "", "");
+            15, 14, true, "sl_at", "sl_rt", 10, 5, "", "", true);
 
         new AdminProvisioner(users, encoder, props).provisionIfNeeded();
 

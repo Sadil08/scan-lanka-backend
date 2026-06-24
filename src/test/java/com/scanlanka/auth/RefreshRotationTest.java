@@ -23,7 +23,7 @@ class RefreshRotationTest {
     private final RefreshTokenRepository repo = mock(RefreshTokenRepository.class);
     private final AuthProperties props = new AuthProperties(
         "secret-key-32-bytes-minimum-for-testing-x", "scanlanka", "scanlanka-web",
-        15, 14, true, "sl_at", "sl_rt", 10, 5, "", "");
+        15, 14, true, "sl_at", "sl_rt", 10, 5, "", "", true);
     private final RefreshTokenService service = new RefreshTokenService(repo, props);
 
     @Test
