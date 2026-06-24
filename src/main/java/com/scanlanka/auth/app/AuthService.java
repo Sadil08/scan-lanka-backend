@@ -21,7 +21,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AuthService {
 
-    private static final int MAX_FAILED_LOGINS = 10;
+    // Industry-standard lockout threshold (5–7). Locked accounts are recovered via password reset,
+    // which clears status back to ACTIVE (07 FR-AUTH). See resetPassword().
+    private static final int MAX_FAILED_LOGINS = 5;
 
     private final AppUserRepository users;
     private final PasswordEncoder encoder;
@@ -134,6 +136,8 @@ public class AuthService {
         if (u != null && otp.verify(u.getId(), Purpose.PASSWORD_RESET, code)) {
             u.setPasswordHash(encoder.encode(newPassword));
             u.bumpTokenVersion();               // kill existing sessions
+            u.setFailedLogins(0);               // self-service unlock after a lockout (P1-5)
+            if (u.getStatus() == UserStatus.LOCKED) u.setStatus(UserStatus.ACTIVE);
             users.save(u);
             refreshTokens.revokeAllForUser(u.getId());
             return;

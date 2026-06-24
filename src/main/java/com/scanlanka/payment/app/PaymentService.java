@@ -50,8 +50,8 @@ public class PaymentService {
 
     public record InitiateResult(String checkoutUrl, Map<String, String> params) {}
 
-    public record NotifyParams(String orderId, String amount, String currency, String statusCode,
-                               String md5sig, String paymentId) {}
+    public record NotifyParams(String merchantId, String orderId, String amount, String currency,
+                               String statusCode, String md5sig, String paymentId) {}
 
     @Transactional
     public InitiateResult initiate(String orderNumber) {
@@ -83,6 +83,13 @@ public class PaymentService {
     /** PayHere server-to-server notify — the ONLY proof of payment (06 FR-PAY-2/3). */
     @Transactional
     public void handleNotify(NotifyParams n) {
+        // Defense-in-depth (P1-3): reject a notify addressed to a different merchant. The signature is
+        // already computed with OUR merchant id + secret (see PayHereHasher), so a foreign merchant_id
+        // can never pass verifyNotify — but failing fast here keeps the intent explicit and auditable.
+        if (props.merchantId() != null && !props.merchantId().isBlank()
+            && !props.merchantId().equals(n.merchantId())) {
+            return; // wrong merchant — ignore
+        }
         boolean sigOk = hasher.verifyNotify(n.orderId(), n.amount(), n.currency(), n.statusCode(), n.md5sig());
         String ref = (n.paymentId() != null && !n.paymentId().isBlank()) ? n.paymentId() : n.orderId();
 

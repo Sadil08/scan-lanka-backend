@@ -72,7 +72,7 @@ class BankTransferIT extends AbstractIntegrationTest {
         Long productId = seed();
         String orderNumber = place(productId);
 
-        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber).param("email", "m@x.lk"))
             .andExpect(status().isCreated());
         assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
             .isEqualTo(OrderStatus.AWAITING_BANK_CONFIRMATION);
@@ -90,7 +90,7 @@ class BankTransferIT extends AbstractIntegrationTest {
     @Test
     void nonAdminCannotConfirm() throws Exception {
         String orderNumber = place(seed());
-        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber).param("email", "m@x.lk"))
             .andExpect(status().isCreated());
         // no admin cookie → role-gated → 4xx
         mvc.perform(post("/api/admin/payments/" + orderNumber + "/bank-confirm")
@@ -102,7 +102,7 @@ class BankTransferIT extends AbstractIntegrationTest {
     void rejectThenReuploadSlip() throws Exception {
         Long productId = seed();
         String orderNumber = place(productId);
-        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber).param("email", "m@x.lk"))
             .andExpect(status().isCreated());
 
         Cookie admin = adminCookie("admin-reject@scanlanka.lk");
@@ -112,9 +112,27 @@ class BankTransferIT extends AbstractIntegrationTest {
         assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
             .isEqualTo(OrderStatus.BANK_SLIP_REJECTED);
 
-        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber))
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip()).param("orderNumber", orderNumber).param("email", "m@x.lk"))
             .andExpect(status().isCreated());
         assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
             .isEqualTo(OrderStatus.AWAITING_BANK_CONFIRMATION);
+    }
+
+    /** P0-3: a slip upload for a guest order with the wrong (or no) email must be rejected. */
+    @Test
+    void cannotUploadSlipForSomeoneElsesOrder() throws Exception {
+        String orderNumber = place(seed());
+
+        // wrong email → 404 (no existence oracle), order stays PENDING_PAYMENT
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip())
+                .param("orderNumber", orderNumber).param("email", "attacker@evil.lk"))
+            .andExpect(status().isNotFound());
+        // missing email → also rejected
+        mvc.perform(multipart("/api/payments/bank-transfer/slip").file(slip())
+                .param("orderNumber", orderNumber))
+            .andExpect(status().isNotFound());
+
+        assertThat(orders.findByOrderNumber(orderNumber).orElseThrow().getStatus())
+            .isEqualTo(OrderStatus.PENDING_PAYMENT);
     }
 }

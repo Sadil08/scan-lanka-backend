@@ -46,9 +46,10 @@ public class BankTransferService {
     }
 
     @Transactional
-    public void uploadSlip(String orderNumber, byte[] fileBytes) {
+    public void uploadSlip(String orderNumber, byte[] fileBytes, Long userId, String guestEmail) {
         Order order = orders.findByOrderNumber(orderNumber)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        assertOwnership(order, userId, guestEmail);
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT
             && order.getStatus() != OrderStatus.BANK_SLIP_REJECTED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ORDER_NOT_AWAITING_SLIP");
@@ -68,6 +69,21 @@ public class BankTransferService {
             orderService.transition(order.getId(), OrderStatus.AWAITING_BANK_CONFIRMATION,
                 ActorType.CUSTOMER, order.getCustomerId(), "bank slip uploaded");
         }
+    }
+
+    /**
+     * The caller must own the order. Registered orders match on userId; guest orders match on the
+     * email the order was placed with. Non-owners get 404 (no existence oracle, IDOR convention).
+     */
+    private void assertOwnership(Order order, Long userId, String guestEmail) {
+        boolean owns;
+        if (order.getCustomerId() != null) {
+            owns = userId != null && userId.equals(order.getCustomerId());
+        } else {
+            owns = guestEmail != null && order.getContactEmail() != null
+                && guestEmail.trim().equalsIgnoreCase(order.getContactEmail());
+        }
+        if (!owns) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
     }
 
     /** Admin-only manual confirmation — NEVER automatic (T-1b). */

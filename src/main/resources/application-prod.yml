@@ -15,3 +15,13 @@ server:
   error:
     include-message: never
     include-stacktrace: never
+
+# Actuator/metrics on an isolated internal port — Prometheus scrapes 9090 directly; the public LB
+# only fronts 8080, so /actuator/** is never reachable from the internet (P0-6). Firewall 9090 to the
+# monitoring subnet only.
+management:
+  server:
+    port: 9090
+  health:
+    redis:
+      enabled: true   # surface Redis outages in /actuator/health (rate limiter fails closed) (P2-4)

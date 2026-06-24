@@ -68,6 +68,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <!-- Caffeine: bounded, TTL'd in-process cache (P0-4 — replaces unbounded ConcurrentMap) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
         <!-- Ops -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

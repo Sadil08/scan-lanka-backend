@@ -196,14 +196,14 @@ public class CheckoutService {
     }
 
     private Config loadDeliveryConfig() {
-        DeliveryConfig c = deliveryConfigs.findById(1)
+        DeliveryConfig c = deliveryConfigs.findFirstByOrderByIdAsc()
             .orElseThrow(() -> new IllegalStateException("delivery_config missing"));
         return new Config(c.getPickFirstCents(), c.getPickNextCents(),
             c.getFragileSurchargeCents(), c.getOversizeSurchargeCents());
     }
 
     private int loadTaxRateBps() {
-        return taxConfigs.findById(1).map(TaxConfig::getRateBps).orElse(0);
+        return taxConfigs.findFirstByOrderByIdAsc().map(TaxConfig::getRateBps).orElse(0);
     }
 
     private static ResponseStatusException badRequest(String code) {

@@ -45,9 +45,21 @@ management:
     health:
       probes:
         enabled: true
+  # Explicitly enable the Prometheus exporter. Without this the registry-specific flag is unset and
+  # the export default resolves false, so no PrometheusMeterRegistry/scrape endpoint is created and
+  # /actuator/prometheus 404s even though it is exposed (was the "prometheus not wired" gap).
+  prometheus:
+    metrics:
+      export:
+        enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
+
+# Structured logs carry the per-request correlation id (P1-7, see CorrelationIdFilter).
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
 
 # App-specific config (filled per phase)
 app:
