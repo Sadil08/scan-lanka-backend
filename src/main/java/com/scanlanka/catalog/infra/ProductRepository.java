@@ -29,6 +29,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT DISTINCT p.category FROM Product p WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL ORDER BY p.category")
     List<String> findDistinctVisibleCategories();
 
+    @Query("""
+        SELECT p.category, COUNT(p) FROM Product p
+        WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL AND TRIM(p.category) <> ''
+        GROUP BY p.category ORDER BY p.category
+        """)
+    List<Object[]> countVisibleProductsByCategory();
+
     @Query("SELECT DISTINCT p.parentProductId FROM Product p WHERE p.active = true AND p.archived = false AND p.parentProductId IS NOT NULL")
     List<Long> findDistinctVisibleParentIds();
 
@@ -44,4 +51,17 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p WHERE p.archived = false AND p.stockQty IS NOT NULL AND p.stockQty <= :max ORDER BY p.stockQty ASC")
     List<Product> findLowStock(@Param("max") int max);
+
+    List<Product> findAllByOrderByNameAsc();
+
+    @Query("""
+        SELECT p.category, COUNT(p) FROM Product p
+        WHERE p.archived = false AND p.category IS NOT NULL AND TRIM(p.category) <> ''
+        GROUP BY p.category ORDER BY p.category
+        """)
+    List<Object[]> countProductsByCategory();
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Product p SET p.category = :to WHERE p.category = :from")
+    int renameCategory(@Param("from") String from, @Param("to") String to);
 }

@@ -28,6 +28,8 @@ public final class ProductResponses {
 
     public record CatalogFacetsDTO(List<ParentFacetDTO> parents, List<String> categories) {}
 
+    public record CategoryCountDTO(String name, long count) {}
+
     public record VariantPreviewRowDTO(List<String> optionValues, int index) {}
 
     public record VariantPreviewResponse(List<VariantPreviewRowDTO> rows) {}
@@ -35,4 +37,21 @@ public final class ProductResponses {
     public record ResolveVariantRequest(List<Long> selectedOptionIds) {}
 
     public record ResolveVariantResponse(long variantId, String sku, long priceCents, String availability) {}
+
+    /** Admin product list row (01 §3 — includes hidden/archived). */
+    public record AdminProductRowDTO(
+        long id, String name, String slug, String sku, String category,
+        String priceMode, boolean active, boolean archived,
+        Integer stockQty, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
+        String previewImageUrl) {}
+
+    /** Admin product detail for edit form (01 §3). */
+    public record AdminProductDetailDTO(
+        long id, String name, String slug, String sku, String description, String details,
+        String category, String handlingClass, Long parentProductId,
+        boolean active, boolean archived, String priceMode,
+        Long singlePriceCents, Integer stockQty,
+        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants) {}
+
+    public record CategoryAdminDTO(String name, long productCount) {}
 }

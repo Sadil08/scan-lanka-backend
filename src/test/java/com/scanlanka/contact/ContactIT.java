@@ -46,6 +46,14 @@ class ContactIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/admin/inquiries").cookie(admin))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].status").value("NEW"));
+
+        long inquiryId = inquiries.findAll().getFirst().getId();
+        mvc.perform(post("/api/admin/inquiries/" + inquiryId + "/handled").cookie(admin))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/admin/inquiries").cookie(admin).param("status", "HANDLED"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].status").value("HANDLED"));
     }
 
     private Cookie adminCookie(String email) throws Exception {

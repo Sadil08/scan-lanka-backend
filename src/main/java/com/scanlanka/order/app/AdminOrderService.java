@@ -64,7 +64,7 @@ public class AdminOrderService {
                                 long unitPriceCents, long lineTotalCents, String status) {}
     public record StatusEventView(String fromStatus, String toStatus, Instant at, String note) {}
     public record PaymentView(String method, String status, String slipUrl, String slipReviewStatus) {}
-    public record OrderDetailView(String orderNumber, String status, String contactName, String contactEmail,
+    public record OrderDetailView(Long customerId, String orderNumber, String status, String contactName, String contactEmail,
                                   String contactPhone, String fulfilmentType, String deliveryPayment,
                                   long subtotalCents, long deliveryCents, long taxCents, long totalCents,
                                   long deliveryCodCents, Long actualDeliveryCents, String deliveryCourier,
@@ -92,7 +92,7 @@ public class AdminOrderService {
         List<StatusEventView> timeline = events.findByOrderIdOrderByCreatedAtAsc(o.getId()).stream()
             .map(e -> new StatusEventView(e.getFromStatus(), e.getToStatus(), e.getCreatedAt(), e.getNote()))
             .toList();
-        return new OrderDetailView(o.getOrderNumber(), o.getStatus().name(), o.getContactName(),
+        return new OrderDetailView(o.getCustomerId(), o.getOrderNumber(), o.getStatus().name(), o.getContactName(),
             o.getContactEmail(), o.getContactPhone(), o.getFulfilmentType().name(), o.getDeliveryPayment().name(),
             o.getSubtotalCents(), o.getDeliveryCents(), o.getTaxCents(), o.getTotalCents(),
             o.getDeliveryCodCents(), o.getActualDeliveryCents(), o.getDeliveryCourier(),

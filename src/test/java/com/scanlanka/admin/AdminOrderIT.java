@@ -84,6 +84,28 @@ class AdminOrderIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void adminListsCustomerOrders() throws Exception {
+        String email = "cust-orders-" + System.nanoTime() + "@x.lk";
+        Cookie customer = AuthTestSupport.loginVerifiedCustomer(mvc, users, email);
+        long customerId = users.findByEmailIgnoreCase(email).orElseThrow().getId();
+
+        Long productId = productService.create(new CreateProductRequest(
+            null, "Cust " + System.nanoTime(), null, null, null, "Accessories", null, 5, 250L,
+            List.of(), List.of()));
+        MvcResult res = mvc.perform(post("/api/checkout").cookie(customer).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
+                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"contactName\":\"Mark\",\"contactPhone\":\"+9477\",\"contactEmail\":\"" + email + "\"}"))
+            .andExpect(status().isOk()).andReturn();
+        String orderNumber = objectMapper.readTree(res.getResponse().getContentAsString()).get("orderNumber").asText();
+
+        Cookie admin = adminCookie("admin-cust-orders@scanlanka.lk");
+        mvc.perform(get("/api/admin/orders/customers/" + customerId).cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].orderNumber").value(orderNumber));
+    }
+
+    @Test
     void nonAdminBlocked() throws Exception {
         mvc.perform(get("/api/admin/orders")).andExpect(status().is4xxClientError());
     }

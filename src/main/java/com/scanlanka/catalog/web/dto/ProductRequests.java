@@ -51,4 +51,8 @@ public final class ProductRequests {
         Long singlePriceCents) {}   // SINGLE only
 
     public record ActiveRequest(boolean active) {}
+
+    public record RenameCategoryRequest(
+        @NotBlank @Size(max = 120) String from,
+        @NotBlank @Size(max = 120) String to) {}
 }

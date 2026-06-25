@@ -12,6 +12,7 @@ import com.scanlanka.catalog.infra.ProductVariantRepository;
 import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductResponses.CatalogFacetsDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.CategoryCountDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ParentFacetDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductChipDTO;
@@ -72,6 +73,13 @@ public class ProductQueryService {
             .map(pp -> new ParentFacetDTO(pp.getId(), pp.getName(), pp.getSlug()))
             .toList();
         return new CatalogFacetsDTO(parentFacets, products.findDistinctVisibleCategories());
+    }
+
+    @Cacheable(value = "catalog-facets", key = "'category-counts'")
+    public List<CategoryCountDTO> categoryCounts() {
+        return products.countVisibleProductsByCategory().stream()
+            .map(row -> new CategoryCountDTO((String) row[0], ((Number) row[1]).longValue()))
+            .toList();
     }
 
     public DetailView detail(String slug) {

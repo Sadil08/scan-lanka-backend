@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -75,6 +76,26 @@ class AdminConfigIT extends AbstractIntegrationTest {
                 .content("{\"name\":\"Overlap\",\"baseChargeCents\":1000,\"perKgChargeCents\":0,"
                     + "\"fuelPct\":0,\"active\":true,\"postalCodes\":[\"00100\"]}"))
             .andExpect(status().isConflict());
+    }
+
+    @Test
+    void adminCanCreateAndDeleteZone() throws Exception {
+        Cookie admin = adminCookie("admin-zone-del@scanlanka.lk");
+        MvcResult created = mvc.perform(post("/api/admin/delivery-zones").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Test Zone\",\"baseChargeCents\":1000,\"perKgChargeCents\":0,"
+                    + "\"fuelPct\":0,\"active\":true,\"postalCodes\":[\"77777\"]}"))
+            .andExpect(status().isOk()).andReturn();
+        long zoneId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asLong();
+
+        mvc.perform(get("/api/admin/delivery-zones/" + zoneId).cookie(admin))
+            .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/admin/delivery-zones/" + zoneId).cookie(admin))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/admin/delivery-zones/" + zoneId).cookie(admin))
+            .andExpect(status().isNotFound());
     }
 
     private Cookie adminCookie(String email) throws Exception {

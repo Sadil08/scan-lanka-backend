@@ -3,7 +3,7 @@ spring:
   application:
     name: scanlanka-backend
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/scanlanka}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/scanlanka?options=-c%20TimeZone%3DUTC}
     username: ${DB_USER:scanlanka_app}
     password: ${DB_PASSWORD:dev_only_change_me}
   jpa:

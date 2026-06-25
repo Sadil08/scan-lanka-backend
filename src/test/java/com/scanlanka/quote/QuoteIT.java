@@ -52,6 +52,13 @@ class QuoteIT extends AbstractIntegrationTest {
                 .content("{\"body\":\"We can do LKR 45000\",\"quotedPriceCents\":4500000}"))
             .andExpect(status().isOk());
 
+        mvc.perform(post("/api/admin/quotes/" + id + "/accept").cookie(admin))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/admin/quotes/" + id).cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
         mvc.perform(get("/api/quotes/" + token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.quotedTotalCents").value(4500000));

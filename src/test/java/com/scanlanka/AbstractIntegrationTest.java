@@ -10,6 +10,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.TimeZone;
+
 /**
  * Base for integration tests (global/05 §3): real Postgres + Redis via Testcontainers, Flyway-migrated
  * schema, MockMvc. Subclasses (named *IT) run under failsafe / CI where Docker is available.
@@ -25,6 +27,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class AbstractIntegrationTest {
+
+    static {
+        // PG 16 rejects deprecated JVM zones like Asia/Calcutta on Windows; force UTC for IT DB connections.
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+    }
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =

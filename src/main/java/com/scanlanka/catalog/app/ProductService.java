@@ -12,7 +12,6 @@ import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
-import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.VariantInput;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewResponse;
