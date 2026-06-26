@@ -89,7 +89,10 @@ public class SecurityConfig {
         CorsConfiguration c = new CorsConfiguration();
         c.setAllowedOrigins(allowedOrigins); // allow-list only — no wildcard (global/02 §7)
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        c.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, HttpHeaders.AUTHORIZATION));
+        c.setAllowedHeaders(List.of(
+            HttpHeaders.CONTENT_TYPE,
+            HttpHeaders.AUTHORIZATION,
+            "X-Captcha-Token"));
         c.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
         src.registerCorsConfiguration("/**", c);
