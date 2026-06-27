@@ -33,6 +33,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Email delivery (10 D-Q1): JavaMailSender behind SmtpEmailProvider -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
         <!-- Security (global/02) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

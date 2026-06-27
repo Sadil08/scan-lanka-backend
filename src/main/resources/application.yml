@@ -23,6 +23,17 @@ spring:
     multipart:                          # image upload limits (01 NFR-CATALOG-1)
       max-file-size: 5MB
       max-request-size: 6MB
+  mail:                                 # SMTP for SmtpEmailProvider (10 D-Q1) — creds from env only
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 server:
   port: ${PORT:8080}
@@ -45,6 +56,12 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    # spring-boot-starter-mail always creates a JavaMailSender (spring.mail.host has a default), which
+    # otherwise adds a "mail" health indicator that opens an SMTP connection on every /actuator/health
+    # probe — slow, and DOWN whenever SMTP is unconfigured. We surface SMTP failures via the worker instead.
+    mail:
+      enabled: false
   # Explicitly enable the Prometheus exporter. Without this the registry-specific flag is unset and
   # the export default resolves false, so no PrometheusMeterRegistry/scrape endpoint is created and
   # /actuator/prometheus 404s even though it is exposed (was the "prometheus not wired" gap).
@@ -72,6 +89,10 @@ app:
     dir: ${STORAGE_DIR:./var/media}     # backend image store, outside web root (global/02 §8, T-20)
   notifications:
     admin-email: ${ADMIN_NOTIFY_EMAIL:orders@scanlanka.com}   # dispatch summaries go here
+    from-email: ${MAIL_FROM:Scan Lanka <no-reply@scanlanka.com>}
+    # Real SMTP off by default — dev uses LoggingEmailProvider. Set MAIL_ENABLED=true (+ MAIL_* creds)
+    # to activate SmtpEmailProvider, which is @Primary and wins whenever present.
+    smtp-enabled: ${MAIL_ENABLED:false}
     poll-ms: 15000
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   order:

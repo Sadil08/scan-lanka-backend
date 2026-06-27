@@ -48,5 +48,10 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+        // Keep the suite hermetic: force the logging email provider, never real SMTP. A developer's local
+        // .env (loaded by spring-dotenv above application.yml) may set MAIL_ENABLED=true with live Gmail
+        // creds — without this pin, ITs would register SmtpEmailProvider and the worker would attempt real
+        // sends on drain. @DynamicPropertySource outranks the .env source, so this wins everywhere.
+        registry.add("app.notifications.smtp-enabled", () -> "false");
     }
 }
