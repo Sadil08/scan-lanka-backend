@@ -24,5 +24,6 @@ public final class OrderCommands {
         Address ship, Billing billing,
         List<LineSnapshot> lines,
         long subtotalCents, long discountCents, long deliveryCents, long taxCents, long totalCents,
-        DeliveryPayment deliveryPayment, long deliveryCodCents) {}
+        DeliveryPayment deliveryPayment, long deliveryCodCents,
+        String deliveryMethod, long courierEstimateCents, boolean deliveryArranged) {}
 }

@@ -1,5 +1,12 @@
 package com.scanlanka;
 
+import com.scanlanka.checkout.domain.CourierZone;
+import com.scanlanka.checkout.domain.LorryZone;
+import com.scanlanka.checkout.domain.PostalZone;
+import com.scanlanka.checkout.infra.DeliverySettingsRepository;
+import com.scanlanka.checkout.infra.PostalZoneRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -53,5 +60,28 @@ public abstract class AbstractIntegrationTest {
         // creds — without this pin, ITs would register SmtpEmailProvider and the worker would attempt real
         // sends on drain. @DynamicPropertySource outranks the .env source, so this wins everywhere.
         registry.add("app.notifications.smtp-enabled", () -> "false");
+    }
+
+    @Autowired(required = false) private PostalZoneRepository postalZonesBase;
+    @Autowired(required = false) private DeliverySettingsRepository deliverySettingsBase;
+
+    /**
+     * Shared delivery setup for order-placing ITs: a serviceable Colombo postal code (00100) and a
+     * lorry minimum bill of 0, so a simple order qualifies for `COMPANY_LORRY` with delivery 0 (its
+     * product carries no lorry charge → "arranged"). Tests that exercise the real Rs 6,000 gate
+     * (e.g. CheckoutIT) override the setting in their own @BeforeEach.
+     */
+    @BeforeEach
+    void seedDeliveryBaseline() {
+        if (postalZonesBase != null && !postalZonesBase.existsById("00100")) {
+            postalZonesBase.save(new PostalZone("00100", LorryZone.COLOMBO, CourierZone.COLOMBO_1_15,
+                "Colombo", "Western Province"));
+        }
+        if (deliverySettingsBase != null) {
+            deliverySettingsBase.findFirstByOrderByIdAsc().ifPresent(s -> {
+                s.setLorryMinBillCents(0);
+                deliverySettingsBase.save(s);
+            });
+        }
     }
 }

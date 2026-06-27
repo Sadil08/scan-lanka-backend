@@ -19,14 +19,14 @@ class AdminAuthzIT extends AbstractIntegrationTest {
     void unauthenticatedAdminRoutesForbidden() throws Exception {
         mvc.perform(get("/api/admin/dashboard")).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/orders")).andExpect(status().isForbidden());
-        mvc.perform(get("/api/admin/delivery-zones")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/courier-rate-card")).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/settings")).andExpect(status().isForbidden());
-        mvc.perform(get("/api/admin/delivery-config")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/delivery-settings")).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/tax-config")).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/notifications")).andExpect(status().isForbidden());
         mvc.perform(put("/api/admin/tax-config").contentType("application/json").content("{}"))
             .andExpect(status().isForbidden());
-        mvc.perform(post("/api/admin/delivery-zones").contentType("application/json").content("{}"))
+        mvc.perform(put("/api/admin/courier-rate-card/COLOMBO_1_15").contentType("application/json").content("{}"))
             .andExpect(status().isForbidden());
     }
 }

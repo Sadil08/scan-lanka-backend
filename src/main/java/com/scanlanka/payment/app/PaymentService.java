@@ -1,6 +1,7 @@
 package com.scanlanka.payment.app;
 
 import com.scanlanka.checkout.app.StockReservationService;
+import com.scanlanka.order.domain.DeliveryPayment;
 import com.scanlanka.order.domain.Order;
 import com.scanlanka.order.domain.OrderStatus;
 import com.scanlanka.order.domain.OrderStatusEvent.ActorType;
@@ -57,6 +58,10 @@ public class PaymentService {
     public InitiateResult initiate(String orderNumber) {
         Order order = orders.findByOrderNumber(orderNumber)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (order.getDeliveryPayment() == DeliveryPayment.COD) {
+            // Courier orders are full COD — nothing is charged online (FR-PAY-15).
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "COURIER_ORDER_IS_COD");
+        }
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ORDER_NOT_PAYABLE");
         }

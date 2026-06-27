@@ -1,7 +1,6 @@
 package com.scanlanka.admin.web;
 
 import com.scanlanka.admin.app.AdminCheckoutConfigService;
-import com.scanlanka.admin.app.AdminCheckoutConfigService.DeliveryConfigView;
 import com.scanlanka.admin.app.AdminCheckoutConfigService.TaxConfigView;
 import com.scanlanka.shared.security.AuthPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,17 +18,6 @@ public class AdminCheckoutConfigController {
 
     public AdminCheckoutConfigController(AdminCheckoutConfigService config) {
         this.config = config;
-    }
-
-    @GetMapping("/delivery-config")
-    public DeliveryConfigView deliveryConfig() {
-        return config.deliveryConfig();
-    }
-
-    @PutMapping("/delivery-config")
-    public DeliveryConfigView updateDelivery(@RequestBody DeliveryConfigView req,
-                                             @AuthenticationPrincipal AuthPrincipal admin) {
-        return config.updateDelivery(req, admin != null ? admin.userId() : null);
     }
 
     @GetMapping("/tax-config")

@@ -2,20 +2,18 @@ package com.scanlanka.checkout.app;
 
 import com.scanlanka.catalog.app.ProductLookupService;
 import com.scanlanka.catalog.app.ProductLookupService.OrderLine;
-import com.scanlanka.checkout.app.DeliveryCostEngine.Config;
-import com.scanlanka.checkout.app.DeliveryCostEngine.Item;
-import com.scanlanka.checkout.app.DeliveryCostEngine.ZoneRates;
-import com.scanlanka.checkout.domain.DeliveryConfig;
-import com.scanlanka.checkout.domain.DeliveryZone;
+import com.scanlanka.checkout.app.DeliveryOptionsService.CartLine;
+import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
+import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
+import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.TaxConfig;
-import com.scanlanka.checkout.infra.DeliveryConfigRepository;
-import com.scanlanka.checkout.infra.DeliveryZonePostalCodeRepository;
-import com.scanlanka.checkout.infra.DeliveryZoneRepository;
 import com.scanlanka.checkout.infra.TaxConfigRepository;
 import com.scanlanka.order.app.OrderCommands;
 import com.scanlanka.order.app.OrderCommands.CreateOrderCommand;
 import com.scanlanka.order.app.OrderCommands.LineSnapshot;
+import com.scanlanka.order.app.OrderPlacedEvent;
 import com.scanlanka.order.app.OrderService;
+import org.springframework.context.ApplicationEventPublisher;
 import com.scanlanka.order.domain.DeliveryPayment;
 import com.scanlanka.order.domain.FulfilmentType;
 import com.scanlanka.order.domain.Order;
@@ -29,51 +27,63 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Checkout (05-checkout-delivery). Server recomputes EVERY total (SEC-PAY): line prices (capped to
- * stock), delivery (rule engine), tax. Charged amount is always LKR. place() creates the order draft.
+ * Checkout (05-checkout-delivery, 17 two-rail model). Server recomputes EVERY total (SEC-PAY): line
+ * prices (capped to stock), delivery (per the chosen rail), tax. Every order is delivered — no pickup.
+ *
+ * <p><b>COMPANY_LORRY</b> → product + fixed lorry charge prepaid online (PREPAID).
+ * <b>COURIER</b> → full COD: nothing charged online; an approximate total (product + tax + weight estimate)
+ * is shown and collected on delivery. Money in integer LKR cents.
  */
 @Service
 public class CheckoutService {
 
     private final ProductLookupService catalog;
-    private final DeliveryZoneRepository zones;
-    private final DeliveryZonePostalCodeRepository postalCodes;
-    private final DeliveryConfigRepository deliveryConfigs;
     private final TaxConfigRepository taxConfigs;
-    private final DeliveryCostEngine deliveryEngine;
+    private final DeliveryOptionsService deliveryOptions;
     private final OrderService orderService;
     private final StockReservationService reservations;
+    private final ApplicationEventPublisher events;
 
-    public CheckoutService(ProductLookupService catalog, DeliveryZoneRepository zones,
-                           DeliveryZonePostalCodeRepository postalCodes, DeliveryConfigRepository deliveryConfigs,
-                           TaxConfigRepository taxConfigs, DeliveryCostEngine deliveryEngine, OrderService orderService,
-                           StockReservationService reservations) {
+    public CheckoutService(ProductLookupService catalog, TaxConfigRepository taxConfigs,
+                           DeliveryOptionsService deliveryOptions, OrderService orderService,
+                           StockReservationService reservations, ApplicationEventPublisher events) {
         this.catalog = catalog;
-        this.zones = zones;
-        this.postalCodes = postalCodes;
-        this.deliveryConfigs = deliveryConfigs;
         this.taxConfigs = taxConfigs;
-        this.deliveryEngine = deliveryEngine;
+        this.deliveryOptions = deliveryOptions;
         this.orderService = orderService;
         this.reservations = reservations;
+        this.events = events;
     }
 
     public record ItemInput(Long productId, Long variantId, int quantity) {}
 
-    public record Quote(long subtotalCents, long deliveryCents, long taxCents, long totalCents,
-                        long deliveryCodCents, boolean serviceable, int lineCount) {}
+    /**
+     * @param onlineTotalCents what is charged online now (lorry: subtotal+delivery+tax; courier: 0)
+     * @param approxTotalCents what the customer ultimately pays (courier: + estimate, paid on delivery)
+     * @param available        whether the chosen rail is offered; {@code reason} explains why not
+     */
+    public record Quote(long subtotalCents, long deliveryCents, long taxCents, long onlineTotalCents,
+                        long courierEstimateCents, long approxTotalCents, boolean someArranged,
+                        DeliveryMethod deliveryMethod, boolean available, String reason, int lineCount) {}
 
-    public record PlaceInput(List<ItemInput> items, FulfilmentType fulfilmentType, DeliveryPayment deliveryPayment,
+    public record PlaceInput(List<ItemInput> items, DeliveryMethod deliveryMethod,
                              OrderCommands.Address ship, OrderCommands.Billing billing,
                              String contactName, String contactPhone, String contactEmail,
                              Long customerId, String guestEmail) {}
 
-    public record Placed(String orderNumber, long totalCents) {}
+    public record Placed(String orderNumber, long onlineTotalCents) {}
 
     @Transactional(readOnly = true)
-    public Quote quote(List<ItemInput> items, FulfilmentType fulfilmentType, String postalCode,
-                       DeliveryPayment deliveryPayment) {
-        return computeQuote(items, fulfilmentType, postalCode, deliveryPayment, false).quote();
+    public Quote quote(List<ItemInput> items, DeliveryMethod deliveryMethod, String postalCode) {
+        return computeQuote(items, deliveryMethod, postalCode, false).quote();
+    }
+
+    /** All rails for a cart + postal code (powers the checkout rail picker, 17 FR-DELIV-1). */
+    @Transactional(readOnly = true)
+    public DeliveryQuote deliveryOptions(List<ItemInput> items, String postalCode) {
+        List<PricedLine> priced = priceLines(items, false);
+        long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
+        return deliveryOptions.options(cartLines(priced), postalCode, subtotal);
     }
 
     /** A priced, stock-capped, deduped line plus the quote derived from a single pricing pass. */
@@ -82,49 +92,57 @@ public class CheckoutService {
 
     /**
      * Resolve + price every line exactly ONCE (so totals and the order snapshot can never disagree),
-     * after consolidating repeated (product, variant) inputs into a single line. Every total is
-     * server-computed.
+     * after consolidating repeated (product, variant) inputs into a single line, then quote the chosen rail.
      */
-    private QuoteResult computeQuote(List<ItemInput> items, FulfilmentType fulfilmentType, String postalCode,
-                                     DeliveryPayment deliveryPayment, boolean strict) {
+    private QuoteResult computeQuote(List<ItemInput> items, DeliveryMethod method, String postalCode,
+                                     boolean strict) {
         List<PricedLine> priced = priceLines(items, strict);
         long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
-
-        boolean serviceable = true;
-        long delivery = 0;
-        if (fulfilmentType == FulfilmentType.DELIVERY) {
-            ZoneRates zone = resolveZone(postalCode).orElse(null);
-            if (zone == null) {
-                serviceable = false;                            // not deliverable → block at place (FR-3b)
-            } else {
-                delivery = deliveryEngine.compute(zone, loadDeliveryConfig(), deliveryItems(priced));
-            }
-        }
-
         long tax = Math.round(subtotal * (loadTaxRateBps() / 10000.0));
-        long deliveryCod = 0;
-        long total;
-        if (deliveryPayment == DeliveryPayment.COD) {           // delivery paid on delivery (06 FR-PAY-7)
-            total = subtotal + tax;
-            deliveryCod = delivery;
-        } else {
-            total = subtotal + delivery + tax;
+
+        DeliveryQuote dq = deliveryOptions.options(cartLines(priced), postalCode, subtotal);
+        Option option = dq.options().stream().filter(o -> o.method() == method).findFirst().orElse(null);
+
+        if (dq.whatsappOnly()) {
+            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, "WHATSAPP_ONLY");
         }
-        Quote quote = new Quote(subtotal, delivery, tax, total, deliveryCod, serviceable, priced.size());
-        return new QuoteResult(quote, priced);
+        if (option == null) {
+            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, "METHOD_DISABLED");
+        }
+        if (!option.available()) {
+            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, option.reason());
+        }
+
+        if (method == DeliveryMethod.COMPANY_LORRY) {
+            long delivery = option.prepaidCents();
+            long online = subtotal + delivery + tax;          // prepaid online with the product
+            return result(priced, subtotal, delivery, tax, 0, online, online, option.someArranged(),
+                method, true, null);
+        }
+        // COURIER — full COD: nothing online; approximate total = product + tax + courier estimate.
+        long estimate = option.courierEstimateCents();
+        return result(priced, subtotal, 0, tax, estimate, 0, subtotal + tax + estimate, false, method, true, null);
+    }
+
+    private QuoteResult result(List<PricedLine> priced, long subtotal, long delivery, long tax,
+                               long estimate, long online, long approx, boolean someArranged,
+                               DeliveryMethod method, boolean available, String reason) {
+        Quote q = new Quote(subtotal, delivery, tax, online, estimate, approx, someArranged,
+            method, available, reason, priced.size());
+        return new QuoteResult(q, priced);
     }
 
     @Transactional
     public Placed place(PlaceInput in) {
         if (in.items() == null || in.items().isEmpty()) throw badRequest("EMPTY_CART");
         String postal = in.ship() != null ? in.ship().postalCode() : null;
-        // strict=true: a resolvable product that can't satisfy the requested qty (e.g. its last unit is
-        // already reserved) is a hard 409, not a silently-dropped line (FR-CHECKOUT-7).
-        QuoteResult qr = computeQuote(in.items(), in.fulfilmentType(), postal, in.deliveryPayment(), true);
+        // strict=true: a resolvable product that can't satisfy the requested qty (its last unit already
+        // reserved) is a hard 409, not a silently-dropped line (FR-CHECKOUT-7).
+        QuoteResult qr = computeQuote(in.items(), in.deliveryMethod(), postal, true);
         Quote q = qr.quote();
         if (q.lineCount() == 0) throw badRequest("NO_AVAILABLE_ITEMS");
-        if (in.fulfilmentType() == FulfilmentType.DELIVERY && !q.serviceable()) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "NOT_SERVICEABLE");
+        if (!q.available()) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, q.reason());
         }
 
         List<LineSnapshot> snapshots = qr.lines().stream()
@@ -132,15 +150,22 @@ public class CheckoutService {
                 p.line().name(), p.line().handlingClass(), p.unitPriceCents(), p.quantity(), p.lineTotalCents()))
             .toList();
 
+        boolean lorry = in.deliveryMethod() == DeliveryMethod.COMPANY_LORRY;
+        DeliveryPayment payment = lorry ? DeliveryPayment.PREPAID : DeliveryPayment.COD;
+
         CreateOrderCommand cmd = new CreateOrderCommand(
             in.customerId(), in.guestEmail(),
             in.contactName(), in.contactPhone(), in.contactEmail(),
-            in.fulfilmentType(), in.ship(), in.billing(), snapshots,
-            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), q.totalCents(),
-            in.deliveryPayment(), q.deliveryCodCents());
+            FulfilmentType.DELIVERY, in.ship(), in.billing(), snapshots,
+            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), q.onlineTotalCents(),
+            payment, 0,
+            in.deliveryMethod().name(), q.courierEstimateCents(), q.someArranged());
         Order order = orderService.createDraft(cmd);
         reservations.reserveForOrder(order.getId(), snapshots);
-        return new Placed(order.getOrderNumber(), q.totalCents());
+        // Synchronous, in-transaction: a COURIER order (full COD) is confirmed + stock-decremented now
+        // by a payment-side listener; a lorry order waits for PayHere/bank (06). Also the 19 thread hook.
+        events.publishEvent(new OrderPlacedEvent(order.getId()));
+        return new Placed(order.getOrderNumber(), q.onlineTotalCents());
     }
 
     // --- helpers ---
@@ -148,13 +173,10 @@ public class CheckoutService {
     private record LineKey(Long productId, Long variantId) {}
 
     /**
-     * Consolidate repeated (product, variant) inputs, resolve each against the catalog, cap to
-     * available stock, and price — a single resolution/pricing pass. Insertion order is preserved.
-     * Lines with no resolvable product or non-positive quantity are dropped.
-     *
-     * <p>When {@code strict} (placement), a resolvable product that can't satisfy its requested qty
-     * (e.g. its last unit is already reserved) is a hard 409 rather than a silently-capped/dropped
-     * line; the lenient quote path just caps for display (FR-CHECKOUT-7).
+     * Consolidate repeated (product, variant) inputs, resolve against the catalog, cap to available stock,
+     * and price — a single resolution/pricing pass. Insertion order preserved. Lines with no resolvable
+     * product or non-positive quantity are dropped. When {@code strict} (placement), a resolvable product
+     * that can't satisfy its requested qty is a hard 409 (FR-CHECKOUT-7).
      */
     private List<PricedLine> priceLines(List<ItemInput> items, boolean strict) {
         LinkedHashMap<LineKey, Integer> requested = new LinkedHashMap<>();
@@ -178,28 +200,12 @@ public class CheckoutService {
         return out;
     }
 
-    private List<Item> deliveryItems(List<PricedLine> priced) {
-        List<Item> items = new ArrayList<>();
-        for (PricedLine p : priced) {
-            // weight 0 until D-8 weights are supplied; handling class drives surcharges now
-            items.add(new Item(p.line().handlingClass(), p.quantity(), 0));
-        }
-        return items;
-    }
-
-    private java.util.Optional<ZoneRates> resolveZone(String postalCode) {
-        if (postalCode == null) return java.util.Optional.empty();
-        return postalCodes.findById(postalCode)
-            .flatMap(pc -> zones.findById(pc.getZoneId()))
-            .filter(DeliveryZone::isActive)
-            .map(z -> new ZoneRates(z.getBaseChargeCents(), z.getPerKgChargeCents(), z.getFuelPct().doubleValue()));
-    }
-
-    private Config loadDeliveryConfig() {
-        DeliveryConfig c = deliveryConfigs.findFirstByOrderByIdAsc()
-            .orElseThrow(() -> new IllegalStateException("delivery_config missing"));
-        return new Config(c.getPickFirstCents(), c.getPickNextCents(),
-            c.getFragileSurchargeCents(), c.getOversizeSurchargeCents());
+    private List<CartLine> cartLines(List<PricedLine> priced) {
+        return priced.stream()
+            .map(p -> new CartLine(p.line().weightKg(),
+                p.line().lorryColomboCents(), p.line().lorrySuburbCents(), p.line().lorryOuterCents(),
+                p.line().whatsappOnly(), p.quantity()))
+            .toList();
     }
 
     private int loadTaxRateBps() {

@@ -66,6 +66,20 @@ public class Product {
     @Column(name = "handling_class", nullable = false)
     private HandlingClass handlingClass = HandlingClass.STANDARD;
 
+    // Delivery attributes (05/17). Product-level defaults; ProductVariant may override per size.
+    @Column(name = "weight_kg")
+    private java.math.BigDecimal weightKg;                  // courier charges on this; null ⇒ not couriable
+
+    @Column(name = "lorry_colombo_cents")
+    private Long lorryColomboCents;                         // fixed lorry price per zone; null ⇒ not into that zone
+    @Column(name = "lorry_suburb_cents")
+    private Long lorrySuburbCents;
+    @Column(name = "lorry_outer_cents")
+    private Long lorryOuterCents;
+
+    @Column(name = "whatsapp_only", nullable = false)
+    private boolean whatsappOnly = false;                  // neither rail → WhatsApp (12)
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -127,6 +141,16 @@ public class Product {
     public void setStockQty(Integer stockQty) { this.stockQty = stockQty; }
     public HandlingClass getHandlingClass() { return handlingClass; }
     public void setHandlingClass(HandlingClass handlingClass) { this.handlingClass = handlingClass; }
+    public java.math.BigDecimal getWeightKg() { return weightKg; }
+    public void setWeightKg(java.math.BigDecimal weightKg) { this.weightKg = weightKg; }
+    public Long getLorryColomboCents() { return lorryColomboCents; }
+    public void setLorryColomboCents(Long c) { this.lorryColomboCents = c; }
+    public Long getLorrySuburbCents() { return lorrySuburbCents; }
+    public void setLorrySuburbCents(Long c) { this.lorrySuburbCents = c; }
+    public Long getLorryOuterCents() { return lorryOuterCents; }
+    public void setLorryOuterCents(Long c) { this.lorryOuterCents = c; }
+    public boolean isWhatsappOnly() { return whatsappOnly; }
+    public void setWhatsappOnly(boolean whatsappOnly) { this.whatsappOnly = whatsappOnly; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public boolean isArchived() { return archived; }

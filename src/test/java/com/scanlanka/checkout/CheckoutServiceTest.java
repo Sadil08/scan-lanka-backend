@@ -6,18 +6,17 @@ import com.scanlanka.checkout.app.CheckoutService;
 import com.scanlanka.checkout.app.CheckoutService.ItemInput;
 import com.scanlanka.checkout.app.CheckoutService.PlaceInput;
 import com.scanlanka.checkout.app.CheckoutService.Quote;
-import com.scanlanka.checkout.app.DeliveryCostEngine;
+import com.scanlanka.checkout.app.DeliveryOptionsService;
+import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
+import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
 import com.scanlanka.checkout.app.StockReservationService;
-import com.scanlanka.checkout.infra.DeliveryConfigRepository;
-import com.scanlanka.checkout.infra.DeliveryZonePostalCodeRepository;
-import com.scanlanka.checkout.infra.DeliveryZoneRepository;
+import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.infra.TaxConfigRepository;
 import com.scanlanka.order.app.OrderCommands.CreateOrderCommand;
 import com.scanlanka.order.app.OrderCommands.LineSnapshot;
 import com.scanlanka.order.app.OrderService;
-import com.scanlanka.order.domain.DeliveryPayment;
-import com.scanlanka.order.domain.FulfilmentType;
 import com.scanlanka.order.domain.Order;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -26,6 +25,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -37,28 +37,33 @@ import static org.mockito.Mockito.when;
  * Unit coverage for the server-authoritative pricing pass (05-checkout). Guards against:
  *  - duplicate (product, variant) inputs double-counting (#5);
  *  - totals and order snapshots diverging because lines are priced more than once (#6).
+ * Delivery is stubbed to a free, available lorry rail so the arithmetic stays on the line totals.
  */
 class CheckoutServiceTest {
 
     private final ProductLookupService catalog = mock(ProductLookupService.class);
-    private final DeliveryZoneRepository zones = mock(DeliveryZoneRepository.class);
-    private final DeliveryZonePostalCodeRepository postalCodes = mock(DeliveryZonePostalCodeRepository.class);
-    private final DeliveryConfigRepository deliveryConfigs = mock(DeliveryConfigRepository.class);
     private final TaxConfigRepository taxConfigs = mock(TaxConfigRepository.class);
-    private final DeliveryCostEngine deliveryEngine = new DeliveryCostEngine();
+    private final DeliveryOptionsService deliveryOptions = mock(DeliveryOptionsService.class);
     private final OrderService orderService = mock(OrderService.class);
     private final StockReservationService reservations = mock(StockReservationService.class);
 
-    private final CheckoutService checkout = new CheckoutService(catalog, zones, postalCodes,
-        deliveryConfigs, taxConfigs, deliveryEngine, orderService, reservations);
+    private final CheckoutService checkout = new CheckoutService(catalog, taxConfigs, deliveryOptions,
+        orderService, reservations, mock(org.springframework.context.ApplicationEventPublisher.class));
+
+    @BeforeEach
+    void freeLorryRail() {
+        when(taxConfigs.findFirstByOrderByIdAsc()).thenReturn(Optional.empty()); // 0% tax → obvious arithmetic
+        DeliveryQuote dq = new DeliveryQuote(false, true,
+            List.of(new Option(DeliveryMethod.COMPANY_LORRY, true, null, 0, 0, false)));
+        when(deliveryOptions.options(any(), any(), anyLong())).thenReturn(dq);
+    }
 
     private void stubLine(long productId, long unitPriceCents, Integer stock, int available) {
         when(catalog.resolveOrderLine(eq(productId), isNull()))
             .thenReturn(Optional.of(new OrderLine(productId, null, "SKU-" + productId, "Item " + productId,
-                null, unitPriceCents, stock)));
+                null, unitPriceCents, stock, null, null, null, null, false)));
         when(reservations.availableQuantity(eq(productId), isNull(), stock == null ? isNull() : eq(stock)))
             .thenReturn(available);
-        when(taxConfigs.findById(1)).thenReturn(Optional.empty()); // 0% tax keeps arithmetic obvious
     }
 
     @Test
@@ -66,11 +71,11 @@ class CheckoutServiceTest {
         stubLine(1L, 250L, null, Integer.MAX_VALUE);
 
         Quote q = checkout.quote(List.of(new ItemInput(1L, null, 2), new ItemInput(1L, null, 3)),
-            FulfilmentType.PICKUP_SHOP, null, DeliveryPayment.PREPAID);
+            DeliveryMethod.COMPANY_LORRY, "00100");
 
         assertThat(q.lineCount()).isEqualTo(1);                 // one line, not two
         assertThat(q.subtotalCents()).isEqualTo(250L * 5);      // qty summed to 5, not first-only
-        assertThat(q.totalCents()).isEqualTo(250L * 5);
+        assertThat(q.onlineTotalCents()).isEqualTo(250L * 5);   // free delivery + 0 tax
     }
 
     @Test
@@ -78,7 +83,7 @@ class CheckoutServiceTest {
         stubLine(1L, 250L, 4, 4);
 
         Quote q = checkout.quote(List.of(new ItemInput(1L, null, 3), new ItemInput(1L, null, 3)),
-            FulfilmentType.PICKUP_SHOP, null, DeliveryPayment.PREPAID);
+            DeliveryMethod.COMPANY_LORRY, "00100");
 
         assertThat(q.lineCount()).isEqualTo(1);
         assertThat(q.subtotalCents()).isEqualTo(250L * 4);      // 6 requested, capped to 4
@@ -93,7 +98,7 @@ class CheckoutServiceTest {
         when(orderService.createDraft(any())).thenReturn(order);
 
         var placed = checkout.place(new PlaceInput(List.of(new ItemInput(1L, null, 2)),
-            FulfilmentType.PICKUP_SHOP, DeliveryPayment.PREPAID, null, null,
+            DeliveryMethod.COMPANY_LORRY, null, null,
             "Buyer", "0770000000", "buyer@example.com", null, "buyer@example.com"));
 
         assertThat(placed.orderNumber()).isEqualTo("SL-TEST-1");
@@ -107,6 +112,7 @@ class CheckoutServiceTest {
         assertThat(lines).hasSize(1);
         assertThat(lines.get(0).quantity()).isEqualTo(2);
         assertThat(lines.get(0).lineTotalCents()).isEqualTo(500L);
+        assertThat(cmd.getValue().deliveryMethod()).isEqualTo("COMPANY_LORRY");
         // snapshot line totals reconcile with the order subtotal stored on the command
         assertThat(cmd.getValue().subtotalCents())
             .isEqualTo(lines.stream().mapToLong(LineSnapshot::lineTotalCents).sum());

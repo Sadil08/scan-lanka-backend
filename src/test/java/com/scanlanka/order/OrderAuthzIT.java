@@ -42,7 +42,7 @@ class OrderAuthzIT extends AbstractIntegrationTest {
 
         MvcResult placed = mvc.perform(post("/api/checkout").cookie(a).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
                     + "\"contactName\":\"A\",\"contactPhone\":\"+94770000001\",\"contactEmail\":\"ordera@scanlanka.lk\"}"))
             .andExpect(status().isOk())
             .andReturn();

@@ -16,9 +16,10 @@ class DeliveryQueryIT extends AbstractIntegrationTest {
 
     @Test
     void locationsAndPostalCodesArePublic() throws Exception {
+        // base seeds postal_zone 00100 → lorry zone COLOMBO, district Colombo
         mvc.perform(get("/api/delivery/locations"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].zone").value("Colombo Metro"));
+            .andExpect(jsonPath("$[?(@.zone == 'COLOMBO')].postalCodes[0]").value(org.hamcrest.Matchers.hasItem("00100")));
 
         mvc.perform(get("/api/delivery/postal-codes").param("q", "001"))
             .andExpect(status().isOk())

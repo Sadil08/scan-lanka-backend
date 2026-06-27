@@ -68,6 +68,10 @@ public class Order {
     @Column(name = "actual_delivery_cents") private Long actualDeliveryCents;
     @Column(name = "delivery_courier") private String deliveryCourier;
 
+    @Column(name = "delivery_method") private String deliveryMethod;            // COMPANY_LORRY | COURIER (17)
+    @Column(name = "courier_estimate_cents", nullable = false) private long courierEstimateCents; // display-only, COD
+    @Column(name = "delivery_arranged", nullable = false) private boolean deliveryArranged;        // lorry far line(s) priced manually
+
     @Column(name = "carrier") private String carrier;
     @Column(name = "tracking_ref") private String trackingRef;
 
@@ -140,6 +144,12 @@ public class Order {
     }
     public void setDeliveryPayment(DeliveryPayment dp) { this.deliveryPayment = dp; }
     public void setDeliveryCodCents(long v) { this.deliveryCodCents = v; }
+    public String getDeliveryMethod() { return deliveryMethod; }
+    public void setDeliveryMethod(String deliveryMethod) { this.deliveryMethod = deliveryMethod; }
+    public long getCourierEstimateCents() { return courierEstimateCents; }
+    public void setCourierEstimateCents(long v) { this.courierEstimateCents = v; }
+    public boolean isDeliveryArranged() { return deliveryArranged; }
+    public void setDeliveryArranged(boolean v) { this.deliveryArranged = v; }
     public void setActualDelivery(Long cents, String courier) {
         this.actualDeliveryCents = cents;
         this.deliveryCourier = courier;

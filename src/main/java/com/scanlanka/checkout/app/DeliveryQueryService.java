@@ -1,30 +1,30 @@
 package com.scanlanka.checkout.app;
 
-import com.scanlanka.checkout.domain.DeliveryZone;
-import com.scanlanka.checkout.domain.DeliveryZonePostalCode;
-import com.scanlanka.checkout.infra.DeliveryZonePostalCodeRepository;
-import com.scanlanka.checkout.infra.DeliveryZoneRepository;
+import com.scanlanka.checkout.domain.LorryZone;
+import com.scanlanka.checkout.domain.PostalZone;
+import com.scanlanka.checkout.infra.PostalZoneRepository;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Public delivery zone/postal lookups (05 FR-CHECKOUT-3/3c). */
+/**
+ * Public delivery serviceability lookups (05 FR-CHECKOUT-3/3c), now over the two-rail `postal_zone`
+ * mapping (17): a postal code is serviceable if it's mapped. The picker lists mapped codes; the
+ * Delivery Locations page groups them by in-house lorry zone (Colombo / suburb / outer).
+ */
 @Service
 @Transactional(readOnly = true)
 public class DeliveryQueryService {
 
-    private final DeliveryZonePostalCodeRepository postalCodes;
-    private final DeliveryZoneRepository zones;
+    private final PostalZoneRepository postalZones;
 
-    public DeliveryQueryService(DeliveryZonePostalCodeRepository postalCodes,
-                                DeliveryZoneRepository zones) {
-        this.postalCodes = postalCodes;
-        this.zones = zones;
+    public DeliveryQueryService(PostalZoneRepository postalZones) {
+        this.postalZones = postalZones;
     }
 
     public record PostalCodeView(String postalCode, String zoneName) {}
@@ -34,34 +34,31 @@ public class DeliveryQueryService {
     @Cacheable(value = "delivery-postal", key = "#q == null ? '' : #q")
     public List<PostalCodeView> postalCodes(String q) {
         String needle = q == null ? "" : q.trim();
-        return postalCodes.findAll().stream()
-            .filter(pc -> activeZone(pc.getZoneId()))
-            .filter(pc -> needle.isEmpty() || pc.getPostalCode().startsWith(needle))
-            .map(pc -> new PostalCodeView(pc.getPostalCode(), zoneName(pc.getZoneId())))
+        return postalZones.findAll().stream()
+            .filter(z -> needle.isEmpty() || z.getPostalCode().startsWith(needle))
+            .map(z -> new PostalCodeView(z.getPostalCode(), label(z)))
             .sorted((a, b) -> a.postalCode().compareTo(b.postalCode()))
             .toList();
     }
 
     @Cacheable("delivery-locations")
     public List<ZoneLocationView> locations() {
-        Map<Long, List<String>> byZone = new LinkedHashMap<>();
-        for (DeliveryZonePostalCode pc : postalCodes.findAll()) {
-            if (!activeZone(pc.getZoneId())) continue;
-            byZone.computeIfAbsent(pc.getZoneId(), k -> new ArrayList<>()).add(pc.getPostalCode());
+        Map<LorryZone, List<String>> byZone = new EnumMap<>(LorryZone.class);
+        for (PostalZone z : postalZones.findAll()) {
+            byZone.computeIfAbsent(z.getLorryZone(), k -> new ArrayList<>()).add(z.getPostalCode());
         }
         List<ZoneLocationView> out = new ArrayList<>();
         for (var e : byZone.entrySet()) {
-            zones.findById(e.getKey()).ifPresent(z ->
-                out.add(new ZoneLocationView(z.getName(), List.copyOf(e.getValue()))));
+            List<String> codes = e.getValue();
+            codes.sort(String::compareTo);
+            out.add(new ZoneLocationView(e.getKey().name(), List.copyOf(codes)));
         }
         return out;
     }
 
-    private boolean activeZone(Long zoneId) {
-        return zones.findById(zoneId).map(DeliveryZone::isActive).orElse(false);
-    }
-
-    private String zoneName(Long zoneId) {
-        return zones.findById(zoneId).map(DeliveryZone::getName).orElse("");
+    /** A human label for the picker: the district if known, else the lorry zone. */
+    private static String label(PostalZone z) {
+        return z.getDistrict() != null && !z.getDistrict().isBlank()
+            ? z.getDistrict() : z.getLorryZone().name();
     }
 }

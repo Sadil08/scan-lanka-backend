@@ -28,9 +28,16 @@ public class ProductLookupService {
     /** Resolved line pricing/stock; stock == null means unlimited. */
     public record LinePricing(String name, long unitPriceCents, Integer stock) {}
 
-    /** Full line info for order snapshots + delivery (sku, handling class). */
+    /**
+     * Full line info for order snapshots + the two-rail delivery engine (05/17). Delivery attributes
+     * (weight, per-zone lorry charges, whatsapp-only) are resolved <b>per variant, falling back to the
+     * product</b> when variant-priced — mirroring price/stock resolution (FR-CATALOG-14b).
+     */
     public record OrderLine(Long productId, Long variantId, String sku, String name,
-                            String handlingClass, long unitPriceCents, Integer stock) {}
+                            String handlingClass, long unitPriceCents, Integer stock,
+                            java.math.BigDecimal weightKg,
+                            Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
+                            boolean whatsappOnly) {}
 
     public java.util.Optional<OrderLine> resolveOrderLine(Long productId, Long variantId) {
         Product p = products.findById(productId)
@@ -45,10 +52,21 @@ public class ProductLookupService {
                 .orElse(null);
             if (v == null) return java.util.Optional.empty();
             return java.util.Optional.of(new OrderLine(productId, variantId, v.getSku(), p.getName(),
-                handling, v.getPriceCents(), v.getStockQty()));
+                handling, v.getPriceCents(), v.getStockQty(),
+                firstNonNull(v.getWeightKg(), p.getWeightKg()),
+                firstNonNull(v.getLorryColomboCents(), p.getLorryColomboCents()),
+                firstNonNull(v.getLorrySuburbCents(), p.getLorrySuburbCents()),
+                firstNonNull(v.getLorryOuterCents(), p.getLorryOuterCents()),
+                v.isWhatsappOnly() || p.isWhatsappOnly()));
         }
         return java.util.Optional.of(new OrderLine(productId, null, p.getSku(), p.getName(),
-            handling, p.getSinglePriceCents(), p.getStockQty()));
+            handling, p.getSinglePriceCents(), p.getStockQty(),
+            p.getWeightKg(), p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
+            p.isWhatsappOnly()));
+    }
+
+    private static <T> T firstNonNull(T a, T b) {
+        return a != null ? a : b;
     }
 
     /** Empty when the product/variant is missing, hidden, or invalid for the product. */

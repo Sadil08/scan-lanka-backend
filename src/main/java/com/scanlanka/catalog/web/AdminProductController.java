@@ -5,6 +5,7 @@ import com.scanlanka.catalog.app.ImageService;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.ActiveRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
+import com.scanlanka.catalog.web.dto.ProductRequests.DeliveryUpdateRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductDetailDTO;
@@ -71,6 +72,14 @@ public class AdminProductController {
     @PatchMapping("/{id}/active")
     public ResponseEntity<Void> setActive(@PathVariable Long id, @RequestBody ActiveRequest req) {
         productService.setActive(id, req.active());
+        return ResponseEntity.ok().build();
+    }
+
+    /** Set/replace one variant's (size's) delivery attributes — weight + per-zone lorry charges (FR-CATALOG-14b). */
+    @PatchMapping("/{id}/variants/{variantId}/delivery")
+    public ResponseEntity<Void> setVariantDelivery(@PathVariable Long id, @PathVariable Long variantId,
+                                                   @Valid @RequestBody DeliveryUpdateRequest req) {
+        productService.updateVariantDelivery(variantId, req.delivery());
         return ResponseEntity.ok().build();
     }
 

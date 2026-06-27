@@ -48,7 +48,7 @@ class ReceiptIdempotencyIT extends AbstractIntegrationTest {
 
         var placeRes = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
                     + "\"contactName\":\"Mark\",\"contactPhone\":\"+9477\",\"contactEmail\":\"m@x.lk\"}"))
             .andExpect(status().isOk()).andReturn();
         String orderNumber = objectMapper.readTree(placeRes.getResponse().getContentAsString())

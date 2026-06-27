@@ -162,7 +162,7 @@ class RefundIT extends AbstractIntegrationTest {
     private String placeAndPay(long productId, String amount) throws Exception {
         MvcResult place = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
                     + "\"contactName\":\"R\",\"contactPhone\":\"+9477\",\"contactEmail\":\"r@x.lk\"}"))
             .andExpect(status().isOk()).andReturn();
         String orderNumber = objectMapper.readTree(place.getResponse().getContentAsString())

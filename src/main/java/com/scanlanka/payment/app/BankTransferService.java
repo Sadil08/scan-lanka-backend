@@ -2,6 +2,7 @@ package com.scanlanka.payment.app;
 
 import com.scanlanka.catalog.app.ImageProcessing;
 import com.scanlanka.order.app.OrderService;
+import com.scanlanka.order.domain.DeliveryPayment;
 import com.scanlanka.order.domain.Order;
 import com.scanlanka.order.domain.OrderStatus;
 import com.scanlanka.order.domain.OrderStatusEvent.ActorType;
@@ -50,6 +51,10 @@ public class BankTransferService {
         Order order = orders.findByOrderNumber(orderNumber)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         assertOwnership(order, userId, guestEmail);
+        if (order.getDeliveryPayment() == DeliveryPayment.COD) {
+            // Bank transfer is for COMPANY_LORRY only; courier orders are full COD (FR-PAY-6/15).
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "COURIER_ORDER_IS_COD");
+        }
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT
             && order.getStatus() != OrderStatus.BANK_SLIP_REJECTED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ORDER_NOT_AWAITING_SLIP");

@@ -209,11 +209,13 @@ public class QuoteService {
             snapshots.add(new LineSnapshot(li.getProductId(), li.getVariantId(), sku,
                 li.getNameSnapshot(), handling, unit, li.getQuantity(), lineTotal));
         }
+        // Bulk quote → order: delivery is arranged manually by admin (no customer rail chosen).
         OrderCommands.CreateOrderCommand cmd = new OrderCommands.CreateOrderCommand(
             q.getCustomerId(), q.getCustomerId() == null ? q.getEmail() : null,
             q.getRequesterName(), q.getPhone(), q.getEmail(),
-            FulfilmentType.PICKUP_SHOP, null, null, snapshots,
-            total, 0, 0, 0, total, DeliveryPayment.PREPAID, 0);
+            FulfilmentType.DELIVERY, null, null, snapshots,
+            total, 0, 0, 0, total, DeliveryPayment.PREPAID, 0,
+            null, 0, false);
         Order order = orderService.createDraft(cmd);
         q.setConvertedOrderId(order.getId());
         quotes.save(q);

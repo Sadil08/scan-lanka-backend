@@ -26,7 +26,7 @@ class StockConcurrencyIT extends AbstractIntegrationTest {
             List.of(), List.of()));
 
         String body = "{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-            + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+            + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
             + "\"contactName\":\"X\",\"contactPhone\":\"+94770000000\",\"contactEmail\":\"x@y.lk\"}";
 
         mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON).content(body))

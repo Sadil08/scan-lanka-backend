@@ -11,6 +11,7 @@ import com.scanlanka.catalog.infra.ProductVariantRepository;
 import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
+import com.scanlanka.catalog.web.dto.ProductRequests.DeliveryAttrs;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.VariantInput;
@@ -130,8 +131,39 @@ public class ProductService {
             if (req.singlePriceCents() != null) p.setSinglePriceCents(req.singlePriceCents());
             if (req.stockQty() != null) p.setStockQty(req.stockQty());
         }
+        if (req.delivery() != null) applyDelivery(p, req.delivery());   // FR-CATALOG-14b/c
         products.save(p);
         cacheEvictor.evictAll();
+    }
+
+    /**
+     * Set/replace a single variant's delivery attributes so the admin can change one size's weight or
+     * per-zone lorry charge over time, without rebuilding the product (FR-CATALOG-14b/c, owner 2026-06-27).
+     */
+    @Transactional
+    public void updateVariantDelivery(Long variantId, DeliveryAttrs d) {
+        ProductVariant v = variants.findById(variantId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
+        applyDelivery(v, d);
+        variants.save(v);
+        cacheEvictor.evictAll();
+    }
+
+    /** Apply the delivery block wholesale (nulls included, so a charge can be cleared). */
+    private static void applyDelivery(Product p, DeliveryAttrs d) {
+        p.setWeightKg(d.weightKg());
+        p.setLorryColomboCents(d.lorryColomboCents());
+        p.setLorrySuburbCents(d.lorrySuburbCents());
+        p.setLorryOuterCents(d.lorryOuterCents());
+        p.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
+    }
+
+    private static void applyDelivery(ProductVariant v, DeliveryAttrs d) {
+        v.setWeightKg(d.weightKg());
+        v.setLorryColomboCents(d.lorryColomboCents());
+        v.setLorrySuburbCents(d.lorrySuburbCents());
+        v.setLorryOuterCents(d.lorryOuterCents());
+        v.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
     }
 
     /** Toggle storefront visibility without deleting (FR-CATALOG-12). */

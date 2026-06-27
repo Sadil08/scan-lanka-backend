@@ -29,7 +29,7 @@ class OrderSnapshotIT extends AbstractIntegrationTest {
 
         MvcResult placed = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-                    + "\"fulfilmentType\":\"PICKUP_SHOP\",\"deliveryPayment\":\"PREPAID\","
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
                     + "\"contactName\":\"Sam\",\"contactPhone\":\"+94770000000\",\"contactEmail\":\"snap@x.lk\"}"))
             .andExpect(status().isOk())
             .andReturn();

@@ -3,12 +3,13 @@ package com.scanlanka.checkout.web;
 import com.scanlanka.checkout.app.CheckoutService;
 import com.scanlanka.checkout.app.CheckoutService.ItemInput;
 import com.scanlanka.checkout.app.CheckoutService.PlaceInput;
+import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
+import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.ItemDTO;
+import com.scanlanka.checkout.web.dto.CheckoutRequests.OptionsRequest;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.PlaceRequest;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.QuoteRequest;
 import com.scanlanka.order.app.OrderCommands;
-import com.scanlanka.order.domain.DeliveryPayment;
-import com.scanlanka.order.domain.FulfilmentType;
 import com.scanlanka.shared.security.AuthPrincipal;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
-/** Checkout API (05 §3). Public — guests can quote + place orders. Identity from token if present. */
+/** Checkout API (05 §3, 17). Public — guests can quote + place orders. Identity from token if present. */
 @RestController
 @RequestMapping("/api/checkout")
 public class CheckoutController {
@@ -32,10 +33,15 @@ public class CheckoutController {
         this.checkout = checkout;
     }
 
+    /** All eligible delivery rails (lorry/courier) for the cart + postal code, with their charges. */
+    @PostMapping("/delivery-options")
+    public DeliveryQuote deliveryOptions(@Valid @RequestBody OptionsRequest req) {
+        return checkout.deliveryOptions(toItems(req.items()), req.postalCode());
+    }
+
     @PostMapping("/quote")
     public CheckoutService.Quote quote(@Valid @RequestBody QuoteRequest req) {
-        return checkout.quote(toItems(req.items()), fulfilment(req.fulfilmentType()),
-            req.postalCode(), deliveryPayment(req.deliveryPayment()));
+        return checkout.quote(toItems(req.items()), method(req.deliveryMethod()), req.postalCode());
     }
 
     @PostMapping
@@ -48,8 +54,7 @@ public class CheckoutController {
             : new OrderCommands.Billing(req.billing().name(), req.billing().taxId(), req.billing().street(),
                 req.billing().city(), req.billing().province(), req.billing().postalCode());
 
-        PlaceInput input = new PlaceInput(toItems(req.items()), fulfilment(req.fulfilmentType()),
-            deliveryPayment(req.deliveryPayment()), ship, billing,
+        PlaceInput input = new PlaceInput(toItems(req.items()), method(req.deliveryMethod()), ship, billing,
             req.contactName(), req.contactPhone(), req.contactEmail(),
             customerId, customerId == null ? req.contactEmail() : null);
         return checkout.place(input);
@@ -60,19 +65,11 @@ public class CheckoutController {
         return items.stream().map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity())).toList();
     }
 
-    private static FulfilmentType fulfilment(String v) {
+    private static DeliveryMethod method(String v) {
         try {
-            return FulfilmentType.valueOf(v);
+            return DeliveryMethod.valueOf(v);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_FULFILMENT_TYPE");
-        }
-    }
-
-    private static DeliveryPayment deliveryPayment(String v) {
-        try {
-            return DeliveryPayment.valueOf(v);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_DELIVERY_PAYMENT");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_DELIVERY_METHOD");
         }
     }
 }
