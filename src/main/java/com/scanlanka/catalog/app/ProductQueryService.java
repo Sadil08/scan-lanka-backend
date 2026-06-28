@@ -134,7 +134,8 @@ public class ProductQueryService {
 
         return new ProductDetailDTO(p.getId(), p.getSlug(), p.getName(), p.getDescription(), p.getDetails(),
             p.getPriceMode().name(), p.getSinglePriceCents(), p.getPriceRangeMinCents(), p.getPriceRangeMaxCents(),
-            avail, imageUrls, specGroups, variantDtos);
+            avail, imageUrls, specGroups, variantDtos,
+            p.isWhatsappOnly(), p.getWeightKg(), p.getWeightKg() != null && !p.isWhatsappOnly());
     }
 
     private ProductChipDTO toChip(Product p) {

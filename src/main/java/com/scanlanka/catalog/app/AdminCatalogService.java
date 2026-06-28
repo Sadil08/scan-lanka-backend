@@ -10,6 +10,8 @@ import com.scanlanka.catalog.infra.ProductVariantRepository;
 import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductDetailDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.AdminVariantDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.DeliveryAttrsDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductRowDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.CategoryAdminDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
@@ -103,9 +105,9 @@ public class AdminCatalogService {
             .map(this::toGroupDto).toList();
         List<ProductVariant> activeVariants = variants.findByProductId(p.getId()).stream()
             .filter(ProductVariant::isActive).toList();
-        List<VariantDTO> variantDtos = activeVariants.stream()
-            .map(v -> new VariantDTO(v.getId(), v.getSku(), v.getPriceCents(),
-                v.getOptionsSignature(), StockAvailability.fromQty(v.getStockQty())))
+        List<AdminVariantDTO> variantDtos = activeVariants.stream()
+            .map(v -> new AdminVariantDTO(v.getId(), v.getSku(), v.getPriceCents(),
+                v.getOptionsSignature(), StockAvailability.fromQty(v.getStockQty()), variantDelivery(v)))
             .toList();
         List<String> imageUrls = images.findByProductIdOrderByDisplayOrderAsc(p.getId()).stream()
             .map(i -> i.getUrl()).toList();
@@ -113,8 +115,18 @@ public class AdminCatalogService {
             p.getId(), p.getName(), p.getSlug(), p.getSku(), p.getDescription(), p.getDetails(),
             p.getCategory(), p.getHandlingClass().name(), p.getParentProductId(),
             p.isActive(), p.isArchived(), p.getPriceMode().name(),
-            p.getSinglePriceCents(), p.getStockQty(),
+            p.getSinglePriceCents(), p.getStockQty(), productDelivery(p),
             imageUrls, specGroups, variantDtos);
+    }
+
+    private static DeliveryAttrsDTO productDelivery(Product p) {
+        return new DeliveryAttrsDTO(p.getWeightKg(), p.getLorryColomboCents(), p.getLorrySuburbCents(),
+            p.getLorryOuterCents(), p.isWhatsappOnly());
+    }
+
+    private static DeliveryAttrsDTO variantDelivery(ProductVariant v) {
+        return new DeliveryAttrsDTO(v.getWeightKg(), v.getLorryColomboCents(), v.getLorrySuburbCents(),
+            v.getLorryOuterCents(), v.isWhatsappOnly());
     }
 
     private SpecGroupDTO toGroupDto(SpecGroup g) {

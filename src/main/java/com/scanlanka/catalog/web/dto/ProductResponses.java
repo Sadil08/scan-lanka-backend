@@ -18,11 +18,21 @@ public final class ProductResponses {
 
     public record VariantDTO(long id, String sku, long priceCents, String optionsSignature, String availability) {}
 
+    public record DeliveryAttrsDTO(
+        java.math.BigDecimal weightKg,
+        Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
+        boolean whatsappOnly) {}
+
+    public record AdminVariantDTO(
+        long id, String sku, long priceCents, String optionsSignature, String availability,
+        DeliveryAttrsDTO delivery) {}
+
     public record ProductDetailDTO(
         long id, String slug, String name, String description, String details,
         String priceMode, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
         String availability,
-        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants) {}
+        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants,
+        boolean whatsappOnly, java.math.BigDecimal weightKg, boolean couriable) {}
 
     public record ParentFacetDTO(long id, String name, String slug) {}
 
@@ -51,7 +61,8 @@ public final class ProductResponses {
         String category, String handlingClass, Long parentProductId,
         boolean active, boolean archived, String priceMode,
         Long singlePriceCents, Integer stockQty,
-        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants) {}
+        DeliveryAttrsDTO delivery,
+        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<AdminVariantDTO> variants) {}
 
     public record CategoryAdminDTO(String name, long productCount) {}
 }
