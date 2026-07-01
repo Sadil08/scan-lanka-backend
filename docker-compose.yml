@@ -1,5 +1,7 @@
 # Local dev infra (global/12 Phase 0). Postgres + Redis only — app runs on host.
-# Usage: docker compose up -d   then   cd backend && mvn spring-boot:run
+# Usage: docker compose up -d
+#        copy .env.example .env
+#        mvn spring-boot:run
 services:
   postgres:
     image: postgres:16

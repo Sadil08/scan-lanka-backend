@@ -37,6 +37,7 @@ spring:
 
 server:
   port: ${PORT:8080}
+  max-http-request-header-size: 64KB   # dev proxy forwards browser cookies; default 8KB is too small
   forward-headers-strategy: framework   # correct scheme behind a TLS-terminating proxy (HTTPS/HSTS)
   compression:                          # gzip JSON/text responses (cheap perf win)
     enabled: true
@@ -84,7 +85,8 @@ app:
     enabled: ${DB_ROLE_CHECK:false}
     fail-on-violation: true
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    dev-origins: http://localhost:3000,http://127.0.0.1:3000
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:${app.cors.dev-origins}}
   storage:
     dir: ${STORAGE_DIR:./var/media}     # backend image store, outside web root (global/02 §8, T-20)
   notifications:

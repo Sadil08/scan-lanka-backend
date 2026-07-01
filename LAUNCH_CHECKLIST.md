@@ -1,8 +1,8 @@
 # Scan Lanka — Launch checklist
 
 Dev conveniences that **must** be flipped/configured before going live, plus known gaps.
-Spring Boot does **not** read `.env` automatically — set these as real environment variables
-(shell `export`, docker-compose `environment:`, systemd, k8s secrets, …) or pass `-Dkey=value`.
+Copy `.env.example` → `.env` for local dev (`spring-dotenv` loads `.env` on startup). In production,
+set these as real environment variables (docker-compose `environment:`, systemd, k8s secrets, …).
 
 ## 🔐 Security (must do)
 

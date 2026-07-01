@@ -2,7 +2,6 @@ package com.scanlanka.shared.config;
 
 import com.scanlanka.auth.web.AdminTotpEnforcementFilter;
 import com.scanlanka.auth.web.AuthFilter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,12 +29,10 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final List<String> allowedOrigins;
+    private final CorsProperties cors;
 
-    // Constructor injection only (global/09 §5) — @Value on the parameter, not a
-    // field.
-    public SecurityConfig(@Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
-        this.allowedOrigins = allowedOrigins;
+    public SecurityConfig(CorsProperties cors) {
+        this.cors = cors;
     }
 
     @Bean
@@ -87,7 +85,11 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration c = new CorsConfiguration();
-        c.setAllowedOrigins(allowedOrigins); // allow-list only — no wildcard (global/02 §7)
+        List<String> patterns = new ArrayList<>(cors.asList());
+        // Local dev: allow any port on loopback (3000 frontend, tunnels, etc.)
+        patterns.add("http://localhost:*");
+        patterns.add("http://127.0.0.1:*");
+        c.setAllowedOriginPatterns(patterns);
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         c.setAllowedHeaders(List.of(
             HttpHeaders.CONTENT_TYPE,

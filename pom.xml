@@ -178,6 +178,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Postgres 16 rejects deprecated JVM zones like Asia/Calcutta on connect -->
+                    <jvmArguments>-Duser.timezone=UTC</jvmArguments>
+                </configuration>
             </plugin>
             <!-- Runs *IT integration tests (Testcontainers) under `mvn verify` (global/05 §3). -->
             <plugin>
