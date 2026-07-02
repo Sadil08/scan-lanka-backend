@@ -1,6 +1,8 @@
 package com.scanlanka.checkout.app;
 
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
+import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliveryMethodConfig;
@@ -9,10 +11,8 @@ import com.scanlanka.checkout.domain.PostalZone;
 import com.scanlanka.checkout.infra.CourierRateCardRepository;
 import com.scanlanka.checkout.infra.DeliveryMethodConfigRepository;
 import com.scanlanka.checkout.infra.DeliverySettingsRepository;
-import com.scanlanka.checkout.infra.PostalZoneRepository;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -29,26 +29,27 @@ public class DeliveryOptionsService {
 
     private static final long DEFAULT_MIN_BILL_CENTS = 600000; // Rs 6,000
 
-    private final PostalZoneRepository postalZones;
     private final CourierRateCardRepository courierRates;
     private final DeliveryMethodConfigRepository methodConfig;
     private final DeliverySettingsRepository settings;
     private final LorryCostEngine lorryEngine;
     private final CourierEstimateEngine courierEngine;
+    private final CourierZoneResolver zoneResolver;
 
-    public DeliveryOptionsService(PostalZoneRepository postalZones, CourierRateCardRepository courierRates,
+    public DeliveryOptionsService(CourierRateCardRepository courierRates,
                                   DeliveryMethodConfigRepository methodConfig, DeliverySettingsRepository settings,
-                                  LorryCostEngine lorryEngine, CourierEstimateEngine courierEngine) {
-        this.postalZones = postalZones;
+                                  LorryCostEngine lorryEngine, CourierEstimateEngine courierEngine,
+                                  CourierZoneResolver zoneResolver) {
         this.courierRates = courierRates;
         this.methodConfig = methodConfig;
         this.settings = settings;
         this.lorryEngine = lorryEngine;
         this.courierEngine = courierEngine;
+        this.zoneResolver = zoneResolver;
     }
 
     /** A cart line with its delivery attributes already resolved (variant else product). */
-    public record CartLine(BigDecimal weightKg,                      // null ⇒ not couriable
+    public record CartLine(BoardSizeTier boardSizeTier,              // null ⇒ not couriable
                            Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
                            boolean whatsappOnly, int quantity) {}
 
@@ -61,20 +62,21 @@ public class DeliveryOptionsService {
     /** The whole delivery picture for a cart. {@code whatsappOnly} ⇒ no rails, route to WhatsApp (12). */
     public record DeliveryQuote(boolean whatsappOnly, boolean postalServiceable, List<Option> options) {}
 
-    public DeliveryQuote options(List<CartLine> lines, String postalCode, long subtotalCents) {
+    public DeliveryQuote options(List<CartLine> lines, String postalCode, String city, long subtotalCents) {
         // Any whatsapp-only item ⇒ neither rail; route the whole order to WhatsApp/quote (FR-DELIV-6d).
         if (lines.stream().anyMatch(CartLine::whatsappOnly)) {
             return new DeliveryQuote(true, false, List.of());
         }
 
-        Optional<PostalZone> zone = postalZones.findById(normalize(postalCode));
+        Optional<PostalZone> zone = zoneResolver.postalZone(normalize(postalCode));
+        Optional<CourierZone> courierZone = zoneResolver.courierZone(normalize(postalCode), city);
         List<Option> options = new ArrayList<>();
 
         if (enabled(DeliveryMethod.COMPANY_LORRY)) {
             options.add(lorryOption(lines, subtotalCents, zone.orElse(null)));
         }
         if (enabled(DeliveryMethod.COURIER)) {
-            options.add(courierOption(lines, zone.orElse(null)));
+            options.add(courierOption(lines, zone.orElse(null), courierZone.orElse(null)));
         }
         return new DeliveryQuote(false, zone.isPresent(), options);
     }
@@ -95,21 +97,20 @@ public class DeliveryOptionsService {
             ((LorryCostEngine.Result.Unavailable) result).reason());
     }
 
-    private Option courierOption(List<CartLine> lines, PostalZone zone) {
-        if (zone == null) {
+    private Option courierOption(List<CartLine> lines, PostalZone zone, CourierZone courierZone) {
+        if (zone == null || courierZone == null) {
             return unavailable(DeliveryMethod.COURIER, "NOT_SERVICEABLE_POSTAL");
         }
-        if (lines.stream().anyMatch(l -> l.weightKg() == null)) {
-            return unavailable(DeliveryMethod.COURIER, "MISSING_WEIGHT"); // FR-DELIV-6
+        if (lines.stream().anyMatch(l -> l.boardSizeTier() == null)) {
+            return unavailable(DeliveryMethod.COURIER, "MISSING_SIZE_TIER");
         }
-        double totalWeightKg = lines.stream()
-            .mapToDouble(l -> l.weightKg().doubleValue() * l.quantity())
-            .sum();
-        CourierZone cz = zone.getCourierZone();
-        CourierRateCard rate = courierRates.findById(cz)
-            .orElseThrow(() -> new IllegalStateException("No courier rate card for zone " + cz));
-        long estimate = courierEngine.estimate(
-            new CourierEstimateEngine.Rate(rate.getBaseCents(), rate.getPerKgCents()), totalWeightKg);
+        long estimate = 0;
+        for (CartLine line : lines) {
+            CourierRateCard rate = courierRates.findById(new CourierRateCardId(courierZone, line.boardSizeTier()))
+                .orElseThrow(() -> new IllegalStateException(
+                    "No courier rate for zone " + courierZone + " tier " + line.boardSizeTier()));
+            estimate += courierEngine.estimateLine(rate.getFlatCents(), line.quantity());
+        }
         return new Option(DeliveryMethod.COURIER, true, null, 0, estimate, false);
     }
 

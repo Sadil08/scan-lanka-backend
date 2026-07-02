@@ -107,10 +107,15 @@ public class ProductQueryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INCOMPLETE_SELECTION");
         }
         String signature = variantService.signature(selectedOptionIds);
+        Product p = products.findById(productId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
         ProductVariant v = variants.findByProductIdAndOptionsSignature(productId, signature)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_OR_INCOMPLETE_SELECTION"));
+        var tier = firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier());
+        boolean whatsappOnly = v.isWhatsappOnly() || p.isWhatsappOnly();
         return new ResolveVariantResponse(v.getId(), v.getSku(), v.getPriceCents(),
-            StockAvailability.fromQty(v.getStockQty()));
+            StockAvailability.fromQty(v.getStockQty()), whatsappOnly, tierName(tier),
+            tier != null && !whatsappOnly);
     }
 
     public record DetailView(ProductDetailDTO dto, String etag) {}
@@ -132,10 +137,17 @@ public class ProductQueryService {
             ? StockAvailability.fromQty(p.getStockQty())
             : StockAvailability.fromVariants(activeVariants);
 
+        boolean couriable = p.getPriceMode() == PriceMode.SINGLE
+            ? p.getBoardSizeTier() != null && !p.isWhatsappOnly()
+            : !p.isWhatsappOnly() && activeVariants.stream().anyMatch(v -> {
+                var tier = firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier());
+                return tier != null && !(v.isWhatsappOnly() || p.isWhatsappOnly());
+            });
+
         return new ProductDetailDTO(p.getId(), p.getSlug(), p.getName(), p.getDescription(), p.getDetails(),
             p.getPriceMode().name(), p.getSinglePriceCents(), p.getPriceRangeMinCents(), p.getPriceRangeMaxCents(),
             avail, imageUrls, specGroups, variantDtos,
-            p.isWhatsappOnly(), p.getWeightKg(), p.getWeightKg() != null && !p.isWhatsappOnly());
+            p.isWhatsappOnly(), tierName(p.getBoardSizeTier()), couriable);
     }
 
     private ProductChipDTO toChip(Product p) {
@@ -155,6 +167,14 @@ public class ProductQueryService {
             single ? null : p.getPriceRangeMinCents(),
             single ? null : p.getPriceRangeMaxCents(),
             avail);
+    }
+
+    private static String tierName(com.scanlanka.checkout.domain.BoardSizeTier tier) {
+        return tier != null ? tier.name() : null;
+    }
+
+    private static <T> T firstNonNull(T a, T b) {
+        return a != null ? a : b;
     }
 
     private SpecGroupDTO toGroupDto(SpecGroup g) {

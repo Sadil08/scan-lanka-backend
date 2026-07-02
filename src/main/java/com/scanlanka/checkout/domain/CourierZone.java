@@ -1,8 +1,9 @@
 package com.scanlanka.checkout.domain;
 
-/** Citrek courier zones: Colombo 1–15 · other · Jaffna/North. */
+/** Citrek courier area bands (Colombo city limits · suburbs · outstation · far away). */
 public enum CourierZone {
-    COLOMBO_1_15,
-    OTHER,
-    JAFFNA_NORTH
+    CITY_LIMITS,
+    SUBURBS,
+    OUTSTATION,
+    FARAWAY
 }

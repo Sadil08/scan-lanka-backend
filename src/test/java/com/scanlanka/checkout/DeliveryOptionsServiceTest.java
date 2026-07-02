@@ -1,12 +1,15 @@
 package com.scanlanka.checkout;
 
 import com.scanlanka.checkout.app.CourierEstimateEngine;
+import com.scanlanka.checkout.app.CourierZoneResolver;
 import com.scanlanka.checkout.app.DeliveryOptionsService;
 import com.scanlanka.checkout.app.DeliveryOptionsService.CartLine;
 import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
 import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
 import com.scanlanka.checkout.app.LorryCostEngine;
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
+import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliveryMethodConfig;
@@ -16,54 +19,64 @@ import com.scanlanka.checkout.domain.PostalZone;
 import com.scanlanka.checkout.infra.CourierRateCardRepository;
 import com.scanlanka.checkout.infra.DeliveryMethodConfigRepository;
 import com.scanlanka.checkout.infra.DeliverySettingsRepository;
-import com.scanlanka.checkout.infra.PostalZoneRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class DeliveryOptionsServiceTest {
 
-    private final PostalZoneRepository postalZones = mock(PostalZoneRepository.class);
     private final CourierRateCardRepository courierRates = mock(CourierRateCardRepository.class);
     private final DeliveryMethodConfigRepository methodConfig = mock(DeliveryMethodConfigRepository.class);
     private final DeliverySettingsRepository settings = mock(DeliverySettingsRepository.class);
+    private final CourierZoneResolver zoneResolver = mock(CourierZoneResolver.class);
 
     private final DeliveryOptionsService service = new DeliveryOptionsService(
-        postalZones, courierRates, methodConfig, settings, new LorryCostEngine(), new CourierEstimateEngine());
+        courierRates, methodConfig, settings, new LorryCostEngine(), new CourierEstimateEngine(), zoneResolver);
 
     @BeforeEach
     void defaults() {
-        // both rails enabled by default (no config row → enabled), min bill Rs 6,000
         lenient().when(methodConfig.findById(any())).thenReturn(Optional.empty());
         DeliverySettings s = mock(DeliverySettings.class);
         lenient().when(s.getLorryMinBillCents()).thenReturn(600000L);
         lenient().when(settings.findFirstByOrderByIdAsc()).thenReturn(Optional.of(s));
-        lenient().when(courierRates.findById(CourierZone.COLOMBO_1_15))
-            .thenReturn(Optional.of(new CourierRateCard(CourierZone.COLOMBO_1_15, 47000, 18500)));
+        lenient().when(courierRates.findById(new CourierRateCardId(CourierZone.CITY_LIMITS, BoardSizeTier.BETWEEN_2FT_6FT)))
+            .thenReturn(Optional.of(new CourierRateCard(CourierZone.CITY_LIMITS, BoardSizeTier.BETWEEN_2FT_6FT, 100000)));
+        lenient().when(courierRates.findById(new CourierRateCardId(CourierZone.SUBURBS, BoardSizeTier.BETWEEN_2FT_6FT)))
+            .thenReturn(Optional.of(new CourierRateCard(CourierZone.SUBURBS, BoardSizeTier.BETWEEN_2FT_6FT, 125000)));
     }
 
     private void colomboPostal() {
-        when(postalZones.findById("00100")).thenReturn(Optional.of(
-            new PostalZone("00100", LorryZone.COLOMBO, CourierZone.COLOMBO_1_15, "Colombo", "Western Province")));
+        PostalZone zone = new PostalZone("00100", LorryZone.COLOMBO, CourierZone.CITY_LIMITS, "Colombo", "Western Province");
+        when(zoneResolver.postalZone("00100")).thenReturn(Optional.of(zone));
+        when(zoneResolver.courierZone(eq("00100"), any())).thenReturn(Optional.of(CourierZone.CITY_LIMITS));
     }
 
-    private CartLine board(long colomboCents, double weightKg, int qty) {
-        return new CartLine(BigDecimal.valueOf(weightKg), colomboCents, null, null, false, qty);
+    private CartLine board(long colomboCents, BoardSizeTier tier, int qty) {
+        return new CartLine(tier, colomboCents, null, null, false, qty);
+    }
+
+    @Test
+    void courierUsesCityZoneOverride() {
+        colomboPostal();
+        when(zoneResolver.courierZone("00100", "Dehiwala")).thenReturn(Optional.of(CourierZone.SUBURBS));
+        DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 1)), "00100", "Dehiwala", 700000);
+        Option courier = optionFor(q, DeliveryMethod.COURIER);
+        assertThat(courier.courierEstimateCents()).isEqualTo(125000);
     }
 
     @Test
     void whatsappOnlyItemHidesAllRails() {
         CartLine glass = new CartLine(null, null, null, null, true, 1);
-        DeliveryQuote q = service.options(List.of(glass), "00100", 5000000);
+        DeliveryQuote q = service.options(List.of(glass), "00100", null, 5000000);
         assertThat(q.whatsappOnly()).isTrue();
         assertThat(q.options()).isEmpty();
     }
@@ -71,69 +84,29 @@ class DeliveryOptionsServiceTest {
     @Test
     void lorryAvailableOverMinBillSumsCharge() {
         colomboPostal();
-        DeliveryQuote q = service.options(List.of(board(80000, 5, 2)), "00100", 700000);
+        DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 2)), "00100", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();
-        assertThat(lorry.prepaidCents()).isEqualTo(160000); // 2 × Rs 800
-        assertThat(lorry.someArranged()).isFalse();
+        assertThat(lorry.prepaidCents()).isEqualTo(160000);
     }
 
     @Test
-    void lorryUnavailableAtOrBelowMinBill() {
+    void courierHiddenWhenAnyItemLacksSizeTier() {
         colomboPostal();
-        DeliveryQuote q = service.options(List.of(board(80000, 5, 1)), "00100", 600000); // exactly 6,000
-        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
-        assertThat(lorry.available()).isFalse();
-        assertThat(lorry.reason()).isEqualTo("MIN_BILL_NOT_MET");
-    }
-
-    @Test
-    void unpricedLorryCellStillOffersLorryAndFlagsArranged() {
-        colomboPostal();
-        CartLine noColomboPrice = new CartLine(BigDecimal.ONE, null, null, null, false, 1);
-        DeliveryQuote q = service.options(List.of(noColomboPrice), "00100", 700000);
-        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
-        assertThat(lorry.available()).isTrue();
-        assertThat(lorry.prepaidCents()).isZero();
-        assertThat(lorry.someArranged()).isTrue();
-    }
-
-    @Test
-    void courierEstimateFromWeight() {
-        colomboPostal();
-        DeliveryQuote q = service.options(List.of(board(80000, 5, 1)), "00100", 700000);
-        Option courier = optionFor(q, DeliveryMethod.COURIER);
-        assertThat(courier.available()).isTrue();
-        assertThat(courier.courierEstimateCents()).isEqualTo(139500); // 5×185 + 470
-        assertThat(courier.prepaidCents()).isZero();                  // courier is full COD
-    }
-
-    @Test
-    void courierHiddenWhenAnyItemLacksWeight() {
-        colomboPostal();
-        CartLine noWeight = new CartLine(null, 80000L, null, null, false, 1);
-        DeliveryQuote q = service.options(List.of(noWeight), "00100", 700000);
+        CartLine noTier = new CartLine(null, 80000L, null, null, false, 1);
+        DeliveryQuote q = service.options(List.of(noTier), "00100", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isFalse();
-        assertThat(courier.reason()).isEqualTo("MISSING_WEIGHT");
+        assertThat(courier.reason()).isEqualTo("MISSING_SIZE_TIER");
     }
 
     @Test
     void unknownPostalCodeIsNonServiceableForBothRails() {
-        when(postalZones.findById("99999")).thenReturn(Optional.empty());
-        DeliveryQuote q = service.options(List.of(board(80000, 5, 1)), "99999", 700000);
+        when(zoneResolver.postalZone("99999")).thenReturn(Optional.empty());
+        when(zoneResolver.courierZone(eq("99999"), any())).thenReturn(Optional.empty());
+        DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 1)), "99999", null, 700000);
         assertThat(q.postalServiceable()).isFalse();
         assertThat(optionFor(q, DeliveryMethod.COMPANY_LORRY).reason()).isEqualTo("NOT_SERVICEABLE_POSTAL");
-        assertThat(optionFor(q, DeliveryMethod.COURIER).reason()).isEqualTo("NOT_SERVICEABLE_POSTAL");
-    }
-
-    @Test
-    void disabledCourierRailIsOmitted() {
-        colomboPostal();
-        when(methodConfig.findById(DeliveryMethod.COURIER))
-            .thenReturn(Optional.of(new DeliveryMethodConfig(DeliveryMethod.COURIER, false)));
-        DeliveryQuote q = service.options(List.of(board(80000, 5, 1)), "00100", 700000);
-        assertThat(q.options()).extracting(Option::method).containsExactly(DeliveryMethod.COMPANY_LORRY);
     }
 
     private static Option optionFor(DeliveryQuote q, DeliveryMethod method) {

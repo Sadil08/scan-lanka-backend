@@ -8,7 +8,9 @@ import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.domain.Product;
 import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
+import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.infra.CourierRateCardRepository;
 import com.scanlanka.order.infra.OrderRepository;
@@ -20,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,7 @@ class AdminConfigIT extends AbstractIntegrationTest {
             null, "Config " + System.nanoTime(), null, null, null, "X", null, 5, 50000L,
             List.of(), List.of()));
         Product p = products.findById(productId).orElseThrow();
-        p.setWeightKg(BigDecimal.valueOf(5));            // couriable
+        p.setBoardSizeTier(BoardSizeTier.BETWEEN_2FT_6FT);
         products.save(p);
 
         String checkout = "{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
@@ -61,9 +62,9 @@ class AdminConfigIT extends AbstractIntegrationTest {
         long snapshot = orders.findByOrderNumber(orderNumber).orElseThrow().getCourierEstimateCents();
         assertThat(snapshot).isEqualTo(estimateBefore);
 
-        // admin raises the Colombo courier base → only NEW quotes reflect it
-        CourierRateCard r = courierRates.findById(CourierZone.COLOMBO_1_15).orElseThrow();
-        r.update(r.getBaseCents() + 50000, r.getPerKgCents());
+        CourierRateCard r = courierRates.findById(
+            new CourierRateCardId(CourierZone.CITY_LIMITS, BoardSizeTier.BETWEEN_2FT_6FT)).orElseThrow();
+        r.update(r.getFlatCents() + 50000);
         courierRates.save(r);
 
         assertThat(quoteCourierEstimate(checkout)).isGreaterThan(estimateBefore);
@@ -75,9 +76,6 @@ class AdminConfigIT extends AbstractIntegrationTest {
             .andExpect(status().isOk()).andReturn();
         return objectMapper.readTree(q.getResponse().getContentAsString()).get("courierEstimateCents").asLong();
     }
-
-    // Legacy delivery-zone CRUD tests removed — that model is retired (V27). Postal-zone management is
-    // now covered by AdminDeliveryConfigIT (PUT/GET /api/admin/postal-zones/{code}).
 
     private Cookie adminCookie(String email) throws Exception {
         AuthTestSupport.seedAdmin(users, encoder, email);

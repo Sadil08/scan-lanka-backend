@@ -36,12 +36,12 @@ public class CheckoutController {
     /** All eligible delivery rails (lorry/courier) for the cart + postal code, with their charges. */
     @PostMapping("/delivery-options")
     public DeliveryQuote deliveryOptions(@Valid @RequestBody OptionsRequest req) {
-        return checkout.deliveryOptions(toItems(req.items()), req.postalCode());
+        return checkout.deliveryOptions(toItems(req.items()), req.postalCode(), req.city());
     }
 
     @PostMapping("/quote")
     public CheckoutService.Quote quote(@Valid @RequestBody QuoteRequest req) {
-        return checkout.quote(toItems(req.items()), method(req.deliveryMethod()), req.postalCode());
+        return checkout.quote(toItems(req.items()), method(req.deliveryMethod()), req.postalCode(), req.city());
     }
 
     @PostMapping

@@ -74,16 +74,16 @@ public class CheckoutService {
     public record Placed(String orderNumber, long onlineTotalCents) {}
 
     @Transactional(readOnly = true)
-    public Quote quote(List<ItemInput> items, DeliveryMethod deliveryMethod, String postalCode) {
-        return computeQuote(items, deliveryMethod, postalCode, false).quote();
+    public Quote quote(List<ItemInput> items, DeliveryMethod deliveryMethod, String postalCode, String city) {
+        return computeQuote(items, deliveryMethod, postalCode, city, false).quote();
     }
 
     /** All rails for a cart + postal code (powers the checkout rail picker, 17 FR-DELIV-1). */
     @Transactional(readOnly = true)
-    public DeliveryQuote deliveryOptions(List<ItemInput> items, String postalCode) {
+    public DeliveryQuote deliveryOptions(List<ItemInput> items, String postalCode, String city) {
         List<PricedLine> priced = priceLines(items, false);
         long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
-        return deliveryOptions.options(cartLines(priced), postalCode, subtotal);
+        return deliveryOptions.options(cartLines(priced), postalCode, city, subtotal);
     }
 
     /** A priced, stock-capped, deduped line plus the quote derived from a single pricing pass. */
@@ -94,13 +94,13 @@ public class CheckoutService {
      * Resolve + price every line exactly ONCE (so totals and the order snapshot can never disagree),
      * after consolidating repeated (product, variant) inputs into a single line, then quote the chosen rail.
      */
-    private QuoteResult computeQuote(List<ItemInput> items, DeliveryMethod method, String postalCode,
+    private QuoteResult computeQuote(List<ItemInput> items, DeliveryMethod method, String postalCode, String city,
                                      boolean strict) {
         List<PricedLine> priced = priceLines(items, strict);
         long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
         long tax = Math.round(subtotal * (loadTaxRateBps() / 10000.0));
 
-        DeliveryQuote dq = deliveryOptions.options(cartLines(priced), postalCode, subtotal);
+        DeliveryQuote dq = deliveryOptions.options(cartLines(priced), postalCode, city, subtotal);
         Option option = dq.options().stream().filter(o -> o.method() == method).findFirst().orElse(null);
 
         if (dq.whatsappOnly()) {
@@ -136,9 +136,10 @@ public class CheckoutService {
     public Placed place(PlaceInput in) {
         if (in.items() == null || in.items().isEmpty()) throw badRequest("EMPTY_CART");
         String postal = in.ship() != null ? in.ship().postalCode() : null;
+        String city = in.ship() != null ? in.ship().city() : null;
         // strict=true: a resolvable product that can't satisfy the requested qty (its last unit already
         // reserved) is a hard 409, not a silently-dropped line (FR-CHECKOUT-7).
-        QuoteResult qr = computeQuote(in.items(), in.deliveryMethod(), postal, true);
+        QuoteResult qr = computeQuote(in.items(), in.deliveryMethod(), postal, city, true);
         Quote q = qr.quote();
         if (q.lineCount() == 0) throw badRequest("NO_AVAILABLE_ITEMS");
         if (!q.available()) {
@@ -202,7 +203,7 @@ public class CheckoutService {
 
     private List<CartLine> cartLines(List<PricedLine> priced) {
         return priced.stream()
-            .map(p -> new CartLine(p.line().weightKg(),
+            .map(p -> new CartLine(p.line().boardSizeTier(),
                 p.line().lorryColomboCents(), p.line().lorrySuburbCents(), p.line().lorryOuterCents(),
                 p.line().whatsappOnly(), p.quantity()))
             .toList();

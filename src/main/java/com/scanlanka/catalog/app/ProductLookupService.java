@@ -2,6 +2,7 @@ package com.scanlanka.catalog.app;
 
 import com.scanlanka.catalog.domain.Product;
 import com.scanlanka.catalog.domain.ProductVariant;
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.infra.ProductVariantRepository;
 import org.springframework.stereotype.Service;
@@ -30,12 +31,12 @@ public class ProductLookupService {
 
     /**
      * Full line info for order snapshots + the two-rail delivery engine (05/17). Delivery attributes
-     * (weight, per-zone lorry charges, whatsapp-only) are resolved <b>per variant, falling back to the
+     * (board size tier, per-zone lorry charges, whatsapp-only) are resolved <b>per variant, falling back to the
      * product</b> when variant-priced — mirroring price/stock resolution (FR-CATALOG-14b).
      */
     public record OrderLine(Long productId, Long variantId, String sku, String name,
                             String handlingClass, long unitPriceCents, Integer stock,
-                            java.math.BigDecimal weightKg,
+                            BoardSizeTier boardSizeTier,
                             Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
                             boolean whatsappOnly) {}
 
@@ -53,7 +54,7 @@ public class ProductLookupService {
             if (v == null) return java.util.Optional.empty();
             return java.util.Optional.of(new OrderLine(productId, variantId, v.getSku(), p.getName(),
                 handling, v.getPriceCents(), v.getStockQty(),
-                firstNonNull(v.getWeightKg(), p.getWeightKg()),
+                firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier()),
                 firstNonNull(v.getLorryColomboCents(), p.getLorryColomboCents()),
                 firstNonNull(v.getLorrySuburbCents(), p.getLorrySuburbCents()),
                 firstNonNull(v.getLorryOuterCents(), p.getLorryOuterCents()),
@@ -61,7 +62,7 @@ public class ProductLookupService {
         }
         return java.util.Optional.of(new OrderLine(productId, null, p.getSku(), p.getName(),
             handling, p.getSinglePriceCents(), p.getStockQty(),
-            p.getWeightKg(), p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
+            p.getBoardSizeTier(), p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
             p.isWhatsappOnly()));
     }
 

@@ -1,41 +1,34 @@
 package com.scanlanka.checkout.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** Citrek per-zone rate: estimate = round(weight × per_kg) + base. Admin-editable (08). */
+/** Citrek flat rate per courier zone + board size tier. Admin-editable (08). */
 @Entity
 @Table(name = "courier_rate_card")
 public class CourierRateCard {
 
-    @Id
-    @Enumerated(EnumType.STRING)
-    private CourierZone zone;
+    @EmbeddedId
+    private CourierRateCardId id;
 
-    @Column(name = "base_cents", nullable = false)
-    private long baseCents;
-
-    @Column(name = "per_kg_cents", nullable = false)
-    private long perKgCents;
+    @Column(name = "flat_cents", nullable = false)
+    private long flatCents;
 
     protected CourierRateCard() {}
 
-    public CourierRateCard(CourierZone zone, long baseCents, long perKgCents) {
-        this.zone = zone;
-        this.baseCents = baseCents;
-        this.perKgCents = perKgCents;
+    public CourierRateCard(CourierZone zone, BoardSizeTier sizeTier, long flatCents) {
+        this.id = new CourierRateCardId(zone, sizeTier);
+        this.flatCents = flatCents;
     }
 
-    public CourierZone getZone() { return zone; }
-    public long getBaseCents() { return baseCents; }
-    public long getPerKgCents() { return perKgCents; }
+    public CourierRateCardId getId() { return id; }
+    public CourierZone getZone() { return id.getZone(); }
+    public BoardSizeTier getSizeTier() { return id.getSizeTier(); }
+    public long getFlatCents() { return flatCents; }
 
-    public void update(long baseCents, long perKgCents) {
-        this.baseCents = baseCents;
-        this.perKgCents = perKgCents;
+    public void update(long flatCents) {
+        this.flatCents = flatCents;
     }
 }

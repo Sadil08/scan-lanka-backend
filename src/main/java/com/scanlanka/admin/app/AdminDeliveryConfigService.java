@@ -1,6 +1,8 @@
 package com.scanlanka.admin.app;
 
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
+import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliveryMethodConfig;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -45,8 +48,8 @@ public class AdminDeliveryConfigService {
         this.cache = cache;
     }
 
-    public record CourierRateView(CourierZone zone, long baseCents, long perKgCents) {}
-    public record CourierRateRequest(long baseCents, long perKgCents) {}
+    public record CourierRateView(CourierZone zone, BoardSizeTier sizeTier, long flatCents) {}
+    public record CourierRateRequest(long flatCents) {}
     public record SettingsView(long lorryMinBillCents) {}
     public record SettingsRequest(long lorryMinBillCents) {}
     public record MethodView(DeliveryMethod method, boolean enabled) {}
@@ -60,20 +63,24 @@ public class AdminDeliveryConfigService {
     @Transactional(readOnly = true)
     public List<CourierRateView> listCourierRates() {
         return courierRates.findAll().stream()
-            .map(r -> new CourierRateView(r.getZone(), r.getBaseCents(), r.getPerKgCents())).toList();
+            .sorted(Comparator.comparing(CourierRateCard::getZone).thenComparing(CourierRateCard::getSizeTier))
+            .map(r -> new CourierRateView(r.getZone(), r.getSizeTier(), r.getFlatCents()))
+            .toList();
     }
 
     @Transactional
-    public CourierRateView upsertCourierRate(CourierZone zone, CourierRateRequest req, Long adminId) {
-        if (req.baseCents() < 0 || req.perKgCents() < 0) throw badRequest("NEGATIVE_RATE");
-        CourierRateCard card = courierRates.findById(zone)
-            .map(c -> { c.update(req.baseCents(), req.perKgCents()); return c; })
-            .orElseGet(() -> new CourierRateCard(zone, req.baseCents(), req.perKgCents()));
+    public CourierRateView upsertCourierRate(CourierZone zone, BoardSizeTier sizeTier, CourierRateRequest req,
+                                             Long adminId) {
+        if (req.flatCents() < 0) throw badRequest("NEGATIVE_RATE");
+        CourierRateCardId id = new CourierRateCardId(zone, sizeTier);
+        CourierRateCard card = courierRates.findById(id)
+            .map(c -> { c.update(req.flatCents()); return c; })
+            .orElseGet(() -> new CourierRateCard(zone, sizeTier, req.flatCents()));
         courierRates.save(card);
-        audit.log(adminId, "COURIER_RATE_UPDATE", "courier_rate_card", zone.name(), null,
-            req.baseCents() + "/" + req.perKgCents());
+        audit.log(adminId, "COURIER_RATE_UPDATE", "courier_rate_card", zone.name() + "/" + sizeTier.name(), null,
+            String.valueOf(req.flatCents()));
         cache.evictAll();
-        return new CourierRateView(zone, req.baseCents(), req.perKgCents());
+        return new CourierRateView(zone, sizeTier, req.flatCents());
     }
 
     // --- Global lorry minimum bill ---

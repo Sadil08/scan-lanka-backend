@@ -6,6 +6,7 @@ import com.scanlanka.auth.infra.AppUserRepository;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.domain.Product;
 import com.scanlanka.catalog.domain.ProductVariant;
+import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.infra.ProductVariantRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
@@ -18,7 +19,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,12 +44,12 @@ class ProductDeliveryIT extends AbstractIntegrationTest {
 
         mvc.perform(put("/api/admin/products/" + id).cookie(admin("admin-deliv1@scanlanka.lk"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"delivery\":{\"weightKg\":3,\"lorryColomboCents\":80000,"
+                .content("{\"delivery\":{\"boardSizeTier\":\"BETWEEN_2FT_6FT\",\"lorryColomboCents\":80000,"
                     + "\"lorrySuburbCents\":100000,\"lorryOuterCents\":150000,\"whatsappOnly\":false}}"))
             .andExpect(status().isOk());
 
         Product p = products.findById(id).orElseThrow();
-        assertThat(p.getWeightKg()).isEqualByComparingTo(BigDecimal.valueOf(3));
+        assertThat(p.getBoardSizeTier()).isEqualTo(BoardSizeTier.BETWEEN_2FT_6FT);
         assertThat(p.getLorryColomboCents()).isEqualTo(80000);
         assertThat(p.getLorryOuterCents()).isEqualTo(150000);
         assertThat(p.isWhatsappOnly()).isFalse();
@@ -69,12 +69,12 @@ class ProductDeliveryIT extends AbstractIntegrationTest {
         mvc.perform(patch("/api/admin/products/" + id + "/variants/" + small.getId() + "/delivery")
                 .cookie(admin("admin-deliv2@scanlanka.lk"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"delivery\":{\"weightKg\":1,\"lorryColomboCents\":50000}}"))
+                .content("{\"delivery\":{\"boardSizeTier\":\"UNDER_2FT\",\"lorryColomboCents\":50000}}"))
             .andExpect(status().isOk());
 
         ProductVariant reloaded = variants.findById(small.getId()).orElseThrow();
         assertThat(reloaded.getLorryColomboCents()).isEqualTo(50000);
-        assertThat(reloaded.getWeightKg()).isEqualByComparingTo(BigDecimal.ONE);
+        assertThat(reloaded.getBoardSizeTier()).isEqualTo(BoardSizeTier.UNDER_2FT);
     }
 
     @Test

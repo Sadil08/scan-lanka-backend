@@ -55,7 +55,7 @@ class CheckoutServiceTest {
         when(taxConfigs.findFirstByOrderByIdAsc()).thenReturn(Optional.empty()); // 0% tax → obvious arithmetic
         DeliveryQuote dq = new DeliveryQuote(false, true,
             List.of(new Option(DeliveryMethod.COMPANY_LORRY, true, null, 0, 0, false)));
-        when(deliveryOptions.options(any(), any(), anyLong())).thenReturn(dq);
+        when(deliveryOptions.options(any(), any(), any(), anyLong())).thenReturn(dq);
     }
 
     private void stubLine(long productId, long unitPriceCents, Integer stock, int available) {
@@ -71,7 +71,7 @@ class CheckoutServiceTest {
         stubLine(1L, 250L, null, Integer.MAX_VALUE);
 
         Quote q = checkout.quote(List.of(new ItemInput(1L, null, 2), new ItemInput(1L, null, 3)),
-            DeliveryMethod.COMPANY_LORRY, "00100");
+            DeliveryMethod.COMPANY_LORRY, "00100", null);
 
         assertThat(q.lineCount()).isEqualTo(1);                 // one line, not two
         assertThat(q.subtotalCents()).isEqualTo(250L * 5);      // qty summed to 5, not first-only
@@ -83,7 +83,7 @@ class CheckoutServiceTest {
         stubLine(1L, 250L, 4, 4);
 
         Quote q = checkout.quote(List.of(new ItemInput(1L, null, 3), new ItemInput(1L, null, 3)),
-            DeliveryMethod.COMPANY_LORRY, "00100");
+            DeliveryMethod.COMPANY_LORRY, "00100", null);
 
         assertThat(q.lineCount()).isEqualTo(1);
         assertThat(q.subtotalCents()).isEqualTo(250L * 4);      // 6 requested, capped to 4

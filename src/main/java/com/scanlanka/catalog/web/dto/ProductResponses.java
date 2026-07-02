@@ -19,7 +19,7 @@ public final class ProductResponses {
     public record VariantDTO(long id, String sku, long priceCents, String optionsSignature, String availability) {}
 
     public record DeliveryAttrsDTO(
-        java.math.BigDecimal weightKg,
+        String boardSizeTier,
         Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
         boolean whatsappOnly) {}
 
@@ -32,7 +32,7 @@ public final class ProductResponses {
         String priceMode, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
         String availability,
         List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants,
-        boolean whatsappOnly, java.math.BigDecimal weightKg, boolean couriable) {}
+        boolean whatsappOnly, String boardSizeTier, boolean couriable) {}
 
     public record ParentFacetDTO(long id, String name, String slug) {}
 
@@ -46,7 +46,8 @@ public final class ProductResponses {
 
     public record ResolveVariantRequest(List<Long> selectedOptionIds) {}
 
-    public record ResolveVariantResponse(long variantId, String sku, long priceCents, String availability) {}
+    public record ResolveVariantResponse(long variantId, String sku, long priceCents, String availability,
+        boolean whatsappOnly, String boardSizeTier, boolean couriable) {}
 
     /** Admin product list row (01 §3 — includes hidden/archived). */
     public record AdminProductRowDTO(

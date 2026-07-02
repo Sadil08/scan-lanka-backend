@@ -120,13 +120,17 @@ public class AdminCatalogService {
     }
 
     private static DeliveryAttrsDTO productDelivery(Product p) {
-        return new DeliveryAttrsDTO(p.getWeightKg(), p.getLorryColomboCents(), p.getLorrySuburbCents(),
+        return new DeliveryAttrsDTO(tierName(p.getBoardSizeTier()), p.getLorryColomboCents(), p.getLorrySuburbCents(),
             p.getLorryOuterCents(), p.isWhatsappOnly());
     }
 
     private static DeliveryAttrsDTO variantDelivery(ProductVariant v) {
-        return new DeliveryAttrsDTO(v.getWeightKg(), v.getLorryColomboCents(), v.getLorrySuburbCents(),
+        return new DeliveryAttrsDTO(tierName(v.getBoardSizeTier()), v.getLorryColomboCents(), v.getLorrySuburbCents(),
             v.getLorryOuterCents(), v.isWhatsappOnly());
+    }
+
+    private static String tierName(com.scanlanka.checkout.domain.BoardSizeTier tier) {
+        return tier != null ? tier.name() : null;
     }
 
     private SpecGroupDTO toGroupDto(SpecGroup g) {

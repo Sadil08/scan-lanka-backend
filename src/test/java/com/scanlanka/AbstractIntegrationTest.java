@@ -74,7 +74,7 @@ public abstract class AbstractIntegrationTest {
     @BeforeEach
     void seedDeliveryBaseline() {
         if (postalZonesBase != null && !postalZonesBase.existsById("00100")) {
-            postalZonesBase.save(new PostalZone("00100", LorryZone.COLOMBO, CourierZone.COLOMBO_1_15,
+            postalZonesBase.save(new PostalZone("00100", LorryZone.COLOMBO, CourierZone.CITY_LIMITS,
                 "Colombo", "Western Province"));
         }
         if (deliverySettingsBase != null) {

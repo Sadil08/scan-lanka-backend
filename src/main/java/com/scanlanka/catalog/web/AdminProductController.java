@@ -75,7 +75,7 @@ public class AdminProductController {
         return ResponseEntity.ok().build();
     }
 
-    /** Set/replace one variant's (size's) delivery attributes — weight + per-zone lorry charges (FR-CATALOG-14b). */
+    /** Set/replace one variant's (size's) delivery attributes — board size tier + per-zone lorry charges. */
     @PatchMapping("/{id}/variants/{variantId}/delivery")
     public ResponseEntity<Void> setVariantDelivery(@PathVariable Long id, @PathVariable Long variantId,
                                                    @Valid @RequestBody DeliveryUpdateRequest req) {
@@ -93,6 +93,11 @@ public class AdminProductController {
         return productService.previewVariants(groups);
     }
 
+    @GetMapping("/{id}/images")
+    public List<ImageService.StoredImageView> listImages(@PathVariable Long id) {
+        return imageService.list(id);
+    }
+
     @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImageService.StoredImageView> uploadImage(
         @PathVariable Long id,
@@ -104,5 +109,16 @@ public class AdminProductController {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @PatchMapping("/{id}/images/{imageId}/preview")
+    public ImageService.StoredImageView setPreview(@PathVariable Long id, @PathVariable Long imageId) {
+        return imageService.setPreview(id, imageId);
+    }
+
+    @DeleteMapping("/{id}/images/{imageId}")
+    public ResponseEntity<Void> deleteImage(@PathVariable Long id, @PathVariable Long imageId) {
+        imageService.delete(id, imageId);
+        return ResponseEntity.noContent().build();
     }
 }

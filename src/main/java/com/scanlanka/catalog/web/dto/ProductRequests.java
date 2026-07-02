@@ -6,7 +6,8 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-import java.math.BigDecimal;
+import com.scanlanka.checkout.domain.BoardSizeTier;
+
 import java.util.List;
 
 /** Admin product create/upsert DTOs (01-product-catalog §3). Strict validation (global/02 §4). */
@@ -20,7 +21,7 @@ public final class ProductRequests {
      * admin arranges far cost manually). The Rs 6,000 lorry minimum is global (`delivery_settings`, 08).
      */
     public record DeliveryAttrs(
-        @PositiveOrZero BigDecimal weightKg,                 // null ⇒ not couriable
+        BoardSizeTier boardSizeTier,                         // null ⇒ not couriable
         @PositiveOrZero Long lorryColomboCents,
         @PositiveOrZero Long lorrySuburbCents,
         @PositiveOrZero Long lorryOuterCents,

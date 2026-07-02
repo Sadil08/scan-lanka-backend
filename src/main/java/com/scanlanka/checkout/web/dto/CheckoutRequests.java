@@ -19,9 +19,9 @@ public final class CheckoutRequests {
     public record BillingDTO(String name, String taxId, String street, String city, String province, String postalCode) {}
 
     /** All available rails for a cart + postal code (powers the rail picker). */
-    public record OptionsRequest(List<ItemDTO> items, String postalCode) {}
+    public record OptionsRequest(List<ItemDTO> items, String postalCode, String city) {}
 
-    public record QuoteRequest(List<ItemDTO> items, @NotBlank String deliveryMethod, String postalCode) {}
+    public record QuoteRequest(List<ItemDTO> items, @NotBlank String deliveryMethod, String postalCode, String city) {}
 
     public record PlaceRequest(
         List<ItemDTO> items,

@@ -67,8 +67,12 @@ public class Product {
     private HandlingClass handlingClass = HandlingClass.STANDARD;
 
     // Delivery attributes (05/17). Product-level defaults; ProductVariant may override per size.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "board_size_tier")
+    private com.scanlanka.checkout.domain.BoardSizeTier boardSizeTier;  // null ⇒ not couriable
+
     @Column(name = "weight_kg")
-    private java.math.BigDecimal weightKg;                  // courier charges on this; null ⇒ not couriable
+    private java.math.BigDecimal weightKg;                  // legacy; not used for courier pricing
 
     @Column(name = "lorry_colombo_cents")
     private Long lorryColomboCents;                         // fixed lorry price per zone; null ⇒ not into that zone
@@ -141,6 +145,10 @@ public class Product {
     public void setStockQty(Integer stockQty) { this.stockQty = stockQty; }
     public HandlingClass getHandlingClass() { return handlingClass; }
     public void setHandlingClass(HandlingClass handlingClass) { this.handlingClass = handlingClass; }
+    public com.scanlanka.checkout.domain.BoardSizeTier getBoardSizeTier() { return boardSizeTier; }
+    public void setBoardSizeTier(com.scanlanka.checkout.domain.BoardSizeTier boardSizeTier) {
+        this.boardSizeTier = boardSizeTier;
+    }
     public java.math.BigDecimal getWeightKg() { return weightKg; }
     public void setWeightKg(java.math.BigDecimal weightKg) { this.weightKg = weightKg; }
     public Long getLorryColomboCents() { return lorryColomboCents; }

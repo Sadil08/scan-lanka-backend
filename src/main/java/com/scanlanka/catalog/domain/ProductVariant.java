@@ -38,6 +38,9 @@ public class ProductVariant {
     private String optionsSignature;
 
     // Per-size delivery attributes (05/17). Null falls back to the product-level default.
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "board_size_tier")
+    private com.scanlanka.checkout.domain.BoardSizeTier boardSizeTier;
     @Column(name = "weight_kg")
     private java.math.BigDecimal weightKg;
     @Column(name = "lorry_colombo_cents")
@@ -69,6 +72,10 @@ public class ProductVariant {
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public String getOptionsSignature() { return optionsSignature; }
+    public com.scanlanka.checkout.domain.BoardSizeTier getBoardSizeTier() { return boardSizeTier; }
+    public void setBoardSizeTier(com.scanlanka.checkout.domain.BoardSizeTier boardSizeTier) {
+        this.boardSizeTier = boardSizeTier;
+    }
     public java.math.BigDecimal getWeightKg() { return weightKg; }
     public void setWeightKg(java.math.BigDecimal weightKg) { this.weightKg = weightKg; }
     public Long getLorryColomboCents() { return lorryColomboCents; }
