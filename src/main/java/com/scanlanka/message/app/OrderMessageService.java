@@ -6,6 +6,7 @@ import com.scanlanka.message.domain.OrderMessage;
 import com.scanlanka.message.domain.OrderMessage.AuthorRole;
 import com.scanlanka.message.infra.MessageThreadRepository;
 import com.scanlanka.message.infra.OrderMessageRepository;
+import com.scanlanka.inbox.app.CustomerInboxService;
 import com.scanlanka.notification.app.NotificationService;
 import com.scanlanka.order.app.OrderNumberService;
 import com.scanlanka.order.domain.Order;
@@ -34,6 +35,7 @@ public class OrderMessageService {
     private final OrderNumberService orderNumbers;
     private final OrderMessageTokenService tokens;
     private final NotificationService notifications;
+    private final CustomerInboxService inbox;
     private final AuditService audit;
     private final String adminEmail;
     private final String frontendBase;
@@ -41,7 +43,8 @@ public class OrderMessageService {
     public OrderMessageService(MessageThreadRepository threads, OrderMessageRepository messages,
                                OrderRepository orders, OrderItemRepository orderItems,
                                OrderNumberService orderNumbers, OrderMessageTokenService tokens,
-                               NotificationService notifications, AuditService audit,
+                               NotificationService notifications, CustomerInboxService inbox,
+                               AuditService audit,
                                @Value("${app.notifications.admin-email}") String adminEmail,
                                @Value("${app.frontend-base-url}") String frontendBase) {
         this.threads = threads;
@@ -51,6 +54,7 @@ public class OrderMessageService {
         this.orderNumbers = orderNumbers;
         this.tokens = tokens;
         this.notifications = notifications;
+        this.inbox = inbox;
         this.audit = audit;
         this.adminEmail = adminEmail;
         this.frontendBase = frontendBase;
@@ -211,6 +215,9 @@ public class OrderMessageService {
             "<p>We replied to your order <strong>" + HtmlEscaper.escape(order.getOrderNumber())
                 + "</strong>.</p><p><a href=\"" + HtmlEscaper.escape(link) + "\">View your order</a></p>",
             "order-msg-reply:" + order.getId() + ":" + Instant.now().getEpochSecond());
+        if (order.getCustomerId() != null) {
+            inbox.notifyOrderReply(order.getCustomerId(), order.getOrderNumber());
+        }
     }
 
     private long threadIdForOrder(long orderId) {

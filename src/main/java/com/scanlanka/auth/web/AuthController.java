@@ -52,6 +52,14 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/verify-email/resend")
+    public ResponseEntity<Map<String, Boolean>> resendVerification(@Valid @RequestBody ForgotRequest req,
+                                                                   HttpServletRequest http) {
+        rateLimiter.check("verify-resend:" + ip(http), 5, 3600);
+        boolean alreadyVerified = auth.resendVerificationEmail(req.email());
+        return ResponseEntity.ok(Map.of("ok", true, "alreadyVerified", alreadyVerified));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<AuthService.MeView> login(@Valid @RequestBody LoginRequest req,
                                                     HttpServletRequest http, HttpServletResponse res) {

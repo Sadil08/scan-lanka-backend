@@ -17,6 +17,8 @@ import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.VariantInput;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewResponse;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewRowDTO;
+import com.scanlanka.catalog.app.StockAvailability;
+import com.scanlanka.inbox.app.CustomerInboxService;
 import com.scanlanka.order.infra.OrderItemRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -50,11 +52,12 @@ public class ProductService {
     private final ProductPricingService pricing;
     private final OrderItemRepository orderItems;
     private final CatalogCacheEvictor cacheEvictor;
+    private final CustomerInboxService inbox;
 
     public ProductService(ProductRepository products, SpecGroupRepository groups, SpecOptionRepository options,
                           ProductVariantRepository variants, VariantService variantService,
                           ProductPricingService pricing, OrderItemRepository orderItems,
-                          CatalogCacheEvictor cacheEvictor) {
+                          CatalogCacheEvictor cacheEvictor, CustomerInboxService inbox) {
         this.products = products;
         this.groups = groups;
         this.options = options;
@@ -63,6 +66,7 @@ public class ProductService {
         this.pricing = pricing;
         this.orderItems = orderItems;
         this.cacheEvictor = cacheEvictor;
+        this.inbox = inbox;
     }
 
     @Transactional
@@ -112,6 +116,9 @@ public class ProductService {
             persistVariants(product, priceAffectingOptionIds, priceAffectingValueToId, nullSafe(req.variants()));
         }
         cacheEvictor.evictAll();
+        if (!product.isArchived() && product.isActive()) {
+            inbox.notifyNewProduct(product.getId(), product.getName(), product.getSlug());
+        }
         return product.getId();
     }
 
@@ -129,7 +136,14 @@ public class ProductService {
         if (req.active() != null) p.setActive(req.active());
         if (p.getPriceMode() == PriceMode.SINGLE) {
             if (req.singlePriceCents() != null) p.setSinglePriceCents(req.singlePriceCents());
-            if (req.stockQty() != null) p.setStockQty(req.stockQty());
+            if (req.stockQty() != null) {
+                String before = StockAvailability.fromQty(p.getStockQty());
+                p.setStockQty(req.stockQty());
+                String after = StockAvailability.fromQty(req.stockQty());
+                if ("OUT_OF_STOCK".equals(before) && !"OUT_OF_STOCK".equals(after)) {
+                    inbox.notifyStockRestock(p.getId(), p.getName(), p.getSlug());
+                }
+            }
         }
         if (req.delivery() != null) applyDelivery(p, req.delivery());   // FR-CATALOG-14b/c
         products.save(p);

@@ -3,6 +3,7 @@ package com.scanlanka.quote.app;
 import com.scanlanka.admin.app.AuditService;
 import com.scanlanka.catalog.app.ProductLookupService;
 import com.scanlanka.catalog.app.ProductLookupService.OrderLine;
+import com.scanlanka.inbox.app.CustomerInboxService;
 import com.scanlanka.notification.app.NotificationService;
 import com.scanlanka.order.app.OrderCommands;
 import com.scanlanka.order.app.OrderCommands.LineSnapshot;
@@ -43,6 +44,7 @@ public class QuoteService {
     private final ProductLookupService catalog;
     private final OrderService orderService;
     private final NotificationService notifications;
+    private final CustomerInboxService inbox;
     private final AuditService audit;
     private final String adminEmail;
     private final String frontendBase;
@@ -50,7 +52,8 @@ public class QuoteService {
     public QuoteService(QuoteRequestRepository quotes, QuoteItemRepository items,
                         QuoteMessageRepository messages, QuoteTokenService tokens,
                         ProductLookupService catalog, OrderService orderService,
-                        NotificationService notifications, AuditService audit,
+                        NotificationService notifications, CustomerInboxService inbox,
+                        AuditService audit,
                         @Value("${app.notifications.admin-email}") String adminEmail,
                         @Value("${app.frontend-base-url}") String frontendBase) {
         this.quotes = quotes;
@@ -60,19 +63,20 @@ public class QuoteService {
         this.catalog = catalog;
         this.orderService = orderService;
         this.notifications = notifications;
+        this.inbox = inbox;
         this.audit = audit;
         this.adminEmail = adminEmail;
         this.frontendBase = frontendBase;
     }
 
-    public record ItemInput(Long productId, Long variantId, int quantity, String note) {}
+    public record ItemInput(Long productId, Long variantId, int quantity, String note, String name) {}
     public record SubmitInput(String requesterName, String email, String phone, String country,
                               String message, List<ItemInput> items, Long customerId) {}
     public record SubmitResult(long id, String accessToken) {}
     public record ItemView(long id, String name, int quantity, String note) {}
     public record MessageView(long id, String sender, String body, Long quotedPriceCents, Instant at) {}
     public record QuoteView(long id, String requesterName, String email, String phone, String country,
-                            String status, Long quotedTotalCents, Instant expiresAt,
+                            String status, Long quotedTotalCents, Instant expiresAt, Instant createdAt,
                             List<ItemView> items, List<MessageView> thread) {}
 
     @Transactional
@@ -91,6 +95,9 @@ public class QuoteService {
             tokens.hash(token), in.customerId(), expires));
         for (ItemInput line : in.items()) {
             if (line.quantity() < 1) throw badRequest("INVALID_QTY");
+            if (line.productId() == null && (line.name() == null || line.name().isBlank())) {
+                throw badRequest("INVALID_ITEM");
+            }
             String itemName = resolveName(line);
             items.save(new QuoteItem(q.getId(), line.productId(), line.variantId(),
                 itemName, line.quantity(), TextSanitizer.optional(line.note(), 300)));
@@ -153,6 +160,9 @@ public class QuoteService {
             HtmlEscaper.subject("Update on your Scan Lanka quote"),
             "<p>" + HtmlEscaper.escape(text) + "</p>",
             "quote-reply:" + msg.getId());
+        if (q.getCustomerId() != null) {
+            inbox.notifyQuoteReply(q.getCustomerId(), q.getId(), text);
+        }
         return toMsg(msg);
     }
 
@@ -227,9 +237,13 @@ public class QuoteService {
         if (line.productId() != null) {
             return catalog.resolveOrderLine(line.productId(), line.variantId())
                 .map(OrderLine::name)
-                .orElse("Product " + line.productId());
+                .orElseGet(() -> fallbackName(line));
         }
-        throw badRequest("INVALID_ITEM");
+        return fallbackName(line);
+    }
+
+    private String fallbackName(ItemInput line) {
+        return TextSanitizer.plain(line.name(), 200, "ITEM");
     }
 
     private QuoteRequest byToken(String token) {
@@ -257,7 +271,7 @@ public class QuoteService {
         List<MessageView> thread = messages.findByQuoteIdOrderByCreatedAtAsc(q.getId()).stream()
             .map(this::toMsg).toList();
         return new QuoteView(q.getId(), q.getRequesterName(), q.getEmail(), q.getPhone(), q.getCountry(),
-            q.getStatus(), q.getQuotedTotalCents(), q.getExpiresAt(), itemViews, thread);
+            q.getStatus(), q.getQuotedTotalCents(), q.getExpiresAt(), q.getCreatedAt(), itemViews, thread);
     }
 
     private MessageView toMsg(QuoteMessage m) {

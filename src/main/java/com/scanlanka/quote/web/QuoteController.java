@@ -39,7 +39,7 @@ public class QuoteController {
         this.captcha = captcha;
     }
 
-    public record ItemBody(Long productId, Long variantId, @Min(1) int quantity, String note) {}
+    public record ItemBody(Long productId, Long variantId, @Min(1) int quantity, String note, String name) {}
     public record SubmitBody(
         @NotBlank String requesterName,
         @Email @NotBlank String email,
@@ -58,7 +58,7 @@ public class QuoteController {
         captcha.verify(captchaToken);
         Long customerId = principal != null ? principal.userId() : null;
         List<ItemInput> items = body.items().stream()
-            .map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity(), i.note()))
+            .map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity(), i.note(), i.name()))
             .toList();
         return quotes.submit(new SubmitInput(body.requesterName(), body.email(), body.phone(),
             body.country(), body.message(), items, customerId));

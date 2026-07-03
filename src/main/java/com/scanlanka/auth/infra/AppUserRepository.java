@@ -5,6 +5,7 @@ import com.scanlanka.auth.domain.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
@@ -16,4 +17,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     boolean existsByEmailIgnoreCase(String email);
 
     boolean existsByRole(Role role);
+
+    @Query("SELECT u.id FROM AppUser u WHERE u.role = :role AND u.status = com.scanlanka.auth.domain.UserStatus.ACTIVE")
+    List<Long> findActiveCustomerIds(Role role);
 }

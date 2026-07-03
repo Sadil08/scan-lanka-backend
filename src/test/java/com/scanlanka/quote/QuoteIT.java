@@ -72,6 +72,16 @@ class QuoteIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void submitWithFreeTextProductName() throws Exception {
+        mvc.perform(post("/api/quotes").contentType(MediaType.APPLICATION_JSON)
+                .header("X-Captcha-Token", "test-captcha-bypass")
+                .content("{\"requesterName\":\"School\",\"email\":\"school@example.com\","
+                    + "\"phone\":\"+9477\",\"country\":\"LK\",\"message\":\"Custom boards\","
+                    + "\"items\":[{\"name\":\"Large whiteboards for classroom\",\"quantity\":20}]}"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
     void nonAdminBlocked() throws Exception {
         mvc.perform(get("/api/admin/quotes")).andExpect(status().is4xxClientError());
     }

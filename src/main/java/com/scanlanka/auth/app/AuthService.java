@@ -68,6 +68,19 @@ public class AuthService {
         // else: do nothing, but respond identically (no enumeration oracle)
     }
 
+    /** Re-issue a verification code for unverified accounts. Returns whether the account is already verified. */
+    @Transactional
+    public boolean resendVerificationEmail(String email) {
+        var user = users.findByEmailIgnoreCase(email).orElse(null);
+        if (user == null) return false;
+        if (user.isEmailVerified()) return true;
+        String code = otp.issue(user.getId(), Purpose.EMAIL_VERIFY);
+        var mail = emailTemplates.emailVerify(user.getName(), code);
+        notifications.enqueue("EMAIL_VERIFY", user.getEmail(), mail.subject(), mail.body(),
+            "verify:" + user.getId() + ":" + System.nanoTime());
+        return false;
+    }
+
     @Transactional
     public void verifyEmail(String email, String code) {
         AppUser u = users.findByEmailIgnoreCase(email).orElse(null);
