@@ -50,8 +50,18 @@ public class AdminDeliveryConfigService {
 
     public record CourierRateView(CourierZone zone, BoardSizeTier sizeTier, long flatCents) {}
     public record CourierRateRequest(long flatCents) {}
-    public record SettingsView(long lorryMinBillCents) {}
-    public record SettingsRequest(long lorryMinBillCents) {}
+    /**
+     * Global delivery settings. {@code lorryMinBillCents} is retired (per-cell gates since 2026-07-03)
+     * but kept for compatibility. {@code lorryCapColomboCents}/{@code lorryCapSuburbCents} (owner
+     * 2026-07-07, unconditional) are an always-on ceiling on the WHOLE zone's lorry total — Colombo
+     * never exceeds Rs 1,000, Suburb never exceeds Rs 1,500, on any order size — and also the flat
+     * per-order fee for a gated cell (no own price) that met its own threshold. {@code gateMetOuterCents}
+     * is outer's own flat charge (no cap role). Null request fields keep the current value.
+     */
+    public record SettingsView(long lorryMinBillCents, long lorryCapColomboCents, long lorryCapSuburbCents,
+                               long gateMetOuterCents) {}
+    public record SettingsRequest(Long lorryMinBillCents, Long lorryCapColomboCents, Long lorryCapSuburbCents,
+                                  Long gateMetOuterCents) {}
     public record MethodView(DeliveryMethod method, boolean enabled) {}
     public record MethodRequest(boolean enabled) {}
     public record PostalZoneRequest(LorryZone lorryZone, CourierZone courierZone, String district, String province) {}
@@ -83,24 +93,40 @@ public class AdminDeliveryConfigService {
         return new CourierRateView(zone, sizeTier, req.flatCents());
     }
 
-    // --- Global lorry minimum bill ---
+    // --- Global delivery settings (gate-met flat charges; legacy min bill kept) ---
 
     @Transactional(readOnly = true)
     public SettingsView getSettings() {
-        return new SettingsView(loadSettings().getLorryMinBillCents());
+        return view(loadSettings());
     }
 
     @Transactional
     public SettingsView updateSettings(SettingsRequest req, Long adminId) {
-        if (req.lorryMinBillCents() < 0) throw badRequest("NEGATIVE_MIN_BILL");
+        for (Long v : new Long[] {req.lorryMinBillCents(), req.lorryCapColomboCents(),
+                                  req.lorryCapSuburbCents(), req.gateMetOuterCents()}) {
+            if (v != null && v < 0) throw badRequest("NEGATIVE_AMOUNT");
+        }
         DeliverySettings s = loadSettings();
-        long before = s.getLorryMinBillCents();
-        s.setLorryMinBillCents(req.lorryMinBillCents());
+        String before = settingsAudit(s);
+        if (req.lorryMinBillCents() != null) s.setLorryMinBillCents(req.lorryMinBillCents());
+        if (req.lorryCapColomboCents() != null) s.setLorryCapColomboCents(req.lorryCapColomboCents());
+        if (req.lorryCapSuburbCents() != null) s.setLorryCapSuburbCents(req.lorryCapSuburbCents());
+        if (req.gateMetOuterCents() != null) s.setGateMetOuterCents(req.gateMetOuterCents());
         settings.save(s);
-        audit.log(adminId, "DELIVERY_SETTINGS_UPDATE", "delivery_settings", "1",
-            String.valueOf(before), String.valueOf(req.lorryMinBillCents()));
+        audit.log(adminId, "DELIVERY_SETTINGS_UPDATE", "delivery_settings", "1", before, settingsAudit(s));
         cache.evictAll();
-        return new SettingsView(req.lorryMinBillCents());
+        return view(s);
+    }
+
+    private static SettingsView view(DeliverySettings s) {
+        return new SettingsView(s.getLorryMinBillCents(), s.getLorryCapColomboCents(), s.getLorryCapSuburbCents(),
+            s.getGateMetOuterCents());
+    }
+
+    private static String settingsAudit(DeliverySettings s) {
+        return "minBill=" + s.getLorryMinBillCents() + ",cap=" + s.getLorryCapColomboCents()
+            + "/" + s.getLorryCapSuburbCents()
+            + ",gateMetOuter=" + s.getGateMetOuterCents();
     }
 
     // --- Per-rail enable toggle ---

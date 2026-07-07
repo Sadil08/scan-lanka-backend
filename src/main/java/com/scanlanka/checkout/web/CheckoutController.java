@@ -5,6 +5,7 @@ import com.scanlanka.checkout.app.CheckoutService.ItemInput;
 import com.scanlanka.checkout.app.CheckoutService.PlaceInput;
 import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
 import com.scanlanka.checkout.domain.DeliveryMethod;
+import com.scanlanka.checkout.domain.PaymentChoice;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.ItemDTO;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.OptionsRequest;
 import com.scanlanka.checkout.web.dto.CheckoutRequests.PlaceRequest;
@@ -54,7 +55,8 @@ public class CheckoutController {
             : new OrderCommands.Billing(req.billing().name(), req.billing().taxId(), req.billing().street(),
                 req.billing().city(), req.billing().province(), req.billing().postalCode());
 
-        PlaceInput input = new PlaceInput(toItems(req.items()), method(req.deliveryMethod()), ship, billing,
+        PlaceInput input = new PlaceInput(toItems(req.items()), method(req.deliveryMethod()),
+            paymentChoice(req.paymentChoice()), ship, billing,
             req.contactName(), req.contactPhone(), req.contactEmail(),
             customerId, customerId == null ? req.contactEmail() : null);
         return checkout.place(input);
@@ -70,6 +72,16 @@ public class CheckoutController {
             return DeliveryMethod.valueOf(v);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_DELIVERY_METHOD");
+        }
+    }
+
+    /** Null/blank ⇒ unspecified (checkout defaults lorry→online, courier→COD). */
+    private static PaymentChoice paymentChoice(String v) {
+        if (v == null || v.isBlank()) return null;
+        try {
+            return PaymentChoice.valueOf(v);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_PAYMENT_CHOICE");
         }
     }
 }

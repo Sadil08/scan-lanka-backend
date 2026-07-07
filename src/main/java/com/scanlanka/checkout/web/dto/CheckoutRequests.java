@@ -26,6 +26,7 @@ public final class CheckoutRequests {
     public record PlaceRequest(
         List<ItemDTO> items,
         @NotBlank String deliveryMethod,
+        String paymentChoice,                 // ONLINE | COD; null ⇒ ONLINE (lorry). Courier is always COD.
         AddressDTO ship,
         BillingDTO billing,
         @NotBlank String contactName,

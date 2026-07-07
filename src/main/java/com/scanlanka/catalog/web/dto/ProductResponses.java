@@ -21,6 +21,9 @@ public final class ProductResponses {
     public record DeliveryAttrsDTO(
         String boardSizeTier,
         Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
+        Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
+        boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,
+        boolean lorryOuterWhatsapp, boolean courierOuterBlocked,
         boolean whatsappOnly) {}
 
     public record AdminVariantDTO(
@@ -55,6 +58,14 @@ public final class ProductResponses {
         String priceMode, boolean active, boolean archived,
         Integer stockQty, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
         String previewImageUrl) {}
+
+    /**
+     * One purchasable unit's delivery attributes for the lorry-pricing overview (08/17, owner
+     * 2026-07-07) — one row per product (single-priced) or per active variant (variant-priced),
+     * flattened across the whole catalog so every size's lorry cell is visible/editable in one table.
+     */
+    public record LorryPricingRowDTO(
+        long productId, String productName, Long variantId, String sizeLabel, DeliveryAttrsDTO delivery) {}
 
     /** Admin product detail for edit form (01 §3). */
     public record AdminProductDetailDTO(

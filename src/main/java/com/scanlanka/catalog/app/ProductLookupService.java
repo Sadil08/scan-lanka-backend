@@ -38,7 +38,9 @@ public class ProductLookupService {
                             String handlingClass, long unitPriceCents, Integer stock,
                             BoardSizeTier boardSizeTier,
                             Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
-                            boolean whatsappOnly) {}
+                            Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
+                            boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,
+                            boolean lorryOuterWhatsapp, boolean courierOuterBlocked, boolean whatsappOnly) {}
 
     public java.util.Optional<OrderLine> resolveOrderLine(Long productId, Long variantId) {
         Product p = products.findById(productId)
@@ -58,12 +60,23 @@ public class ProductLookupService {
                 firstNonNull(v.getLorryColomboCents(), p.getLorryColomboCents()),
                 firstNonNull(v.getLorrySuburbCents(), p.getLorrySuburbCents()),
                 firstNonNull(v.getLorryOuterCents(), p.getLorryOuterCents()),
+                firstNonNull(v.getLorryColomboGateCents(), p.getLorryColomboGateCents()),
+                firstNonNull(v.getLorrySuburbGateCents(), p.getLorrySuburbGateCents()),
+                firstNonNull(v.getLorryOuterGateCents(), p.getLorryOuterGateCents()),
+                // ON only when neither level switched the zone off (default true on both)
+                v.isLorryColomboEnabled() && p.isLorryColomboEnabled(),
+                v.isLorrySuburbEnabled() && p.isLorrySuburbEnabled(),
+                v.isLorryOuterEnabled() && p.isLorryOuterEnabled(),
+                v.isLorryOuterWhatsapp() || p.isLorryOuterWhatsapp(),
+                v.isCourierOuterBlocked() || p.isCourierOuterBlocked(),
                 v.isWhatsappOnly() || p.isWhatsappOnly()));
         }
         return java.util.Optional.of(new OrderLine(productId, null, p.getSku(), p.getName(),
             handling, p.getSinglePriceCents(), p.getStockQty(),
             p.getBoardSizeTier(), p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
-            p.isWhatsappOnly()));
+            p.getLorryColomboGateCents(), p.getLorrySuburbGateCents(), p.getLorryOuterGateCents(),
+            p.isLorryColomboEnabled(), p.isLorrySuburbEnabled(), p.isLorryOuterEnabled(),
+            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isWhatsappOnly()));
     }
 
     private static <T> T firstNonNull(T a, T b) {

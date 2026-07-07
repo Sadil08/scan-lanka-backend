@@ -6,6 +6,7 @@ import com.scanlanka.checkout.app.DeliveryOptionsService.CartLine;
 import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
 import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
 import com.scanlanka.checkout.domain.DeliveryMethod;
+import com.scanlanka.checkout.domain.PaymentChoice;
 import com.scanlanka.checkout.domain.TaxConfig;
 import com.scanlanka.checkout.infra.TaxConfigRepository;
 import com.scanlanka.order.app.OrderCommands;
@@ -66,7 +67,7 @@ public class CheckoutService {
                         long courierEstimateCents, long approxTotalCents, boolean someArranged,
                         DeliveryMethod deliveryMethod, boolean available, String reason, int lineCount) {}
 
-    public record PlaceInput(List<ItemInput> items, DeliveryMethod deliveryMethod,
+    public record PlaceInput(List<ItemInput> items, DeliveryMethod deliveryMethod, PaymentChoice paymentChoice,
                              OrderCommands.Address ship, OrderCommands.Billing billing,
                              String contactName, String contactPhone, String contactEmail,
                              Long customerId, String guestEmail) {}
@@ -152,21 +153,32 @@ public class CheckoutService {
             .toList();
 
         boolean lorry = in.deliveryMethod() == DeliveryMethod.COMPANY_LORRY;
-        DeliveryPayment payment = lorry ? DeliveryPayment.PREPAID : DeliveryPayment.COD;
+        PaymentChoice choice = in.paymentChoice();   // null ⇒ unspecified (lorry→online, courier→COD)
+        // Courier is always full COD; an EXPLICIT online choice on a courier order is rejected (SEC-DELIV-1).
+        if (!lorry && choice == PaymentChoice.ONLINE) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "COURIER_IS_COD_ONLY");
+        }
+        // Lorry-COD (owner 2026-07-03) confirms like courier: nothing online, driver collects the full
+        // door total (subtotal + lorry charge + tax). Lorry defaults to prepaid online unless COD is chosen.
+        boolean cod = !lorry || choice == PaymentChoice.COD;
+        DeliveryPayment payment = cod ? DeliveryPayment.COD : DeliveryPayment.PREPAID;
+        long doorTotal = q.subtotalCents() + q.deliveryCents() + q.taxCents();
+        long onlineTotal = cod ? 0 : doorTotal;
+        long codCents = (lorry && cod) ? doorTotal : 0;   // cash the driver collects (0 for courier)
 
         CreateOrderCommand cmd = new CreateOrderCommand(
             in.customerId(), in.guestEmail(),
             in.contactName(), in.contactPhone(), in.contactEmail(),
             FulfilmentType.DELIVERY, in.ship(), in.billing(), snapshots,
-            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), q.onlineTotalCents(),
-            payment, 0,
+            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), onlineTotal,
+            payment, codCents,
             in.deliveryMethod().name(), q.courierEstimateCents(), q.someArranged());
         Order order = orderService.createDraft(cmd);
         reservations.reserveForOrder(order.getId(), snapshots);
-        // Synchronous, in-transaction: a COURIER order (full COD) is confirmed + stock-decremented now
-        // by a payment-side listener; a lorry order waits for PayHere/bank (06). Also the 19 thread hook.
+        // Synchronous, in-transaction: any COD order (courier OR lorry-COD) is confirmed + stock-decremented
+        // now by a payment-side listener; a lorry-online order waits for PayHere/bank (06). Also the 19 hook.
         events.publishEvent(new OrderPlacedEvent(order.getId()));
-        return new Placed(order.getOrderNumber(), q.onlineTotalCents());
+        return new Placed(order.getOrderNumber(), onlineTotal);
     }
 
     // --- helpers ---
@@ -203,8 +215,11 @@ public class CheckoutService {
 
     private List<CartLine> cartLines(List<PricedLine> priced) {
         return priced.stream()
-            .map(p -> new CartLine(p.line().boardSizeTier(),
+            .map(p -> new CartLine(p.line().name(), p.line().boardSizeTier(),
                 p.line().lorryColomboCents(), p.line().lorrySuburbCents(), p.line().lorryOuterCents(),
+                p.line().lorryColomboGateCents(), p.line().lorrySuburbGateCents(), p.line().lorryOuterGateCents(),
+                p.line().lorryColomboEnabled(), p.line().lorrySuburbEnabled(), p.line().lorryOuterEnabled(),
+                p.line().lorryOuterWhatsapp(), p.line().courierOuterBlocked(),
                 p.line().whatsappOnly(), p.quantity()))
             .toList();
     }

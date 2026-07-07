@@ -5,8 +5,10 @@ import com.scanlanka.checkout.domain.CourierZone;
 import org.springframework.stereotype.Component;
 
 /**
- * Citrek courier estimate (05 delivery-cost-model). Flat rate per board size tier and courier zone.
- * Display-only — courier orders are full COD. Money in integer LKR cents.
+ * Domex courier estimate (05 delivery-cost-model.md, owner 2026-07-03 — Domex is the only courier).
+ * Flat rate per board size tier and courier area. Display-only — courier orders are full COD.
+ * Oversize/missing-tier eligibility is decided by {@link DeliveryOptionsService} (policy), not here.
+ * Money in integer LKR cents.
  */
 @Component
 public class CourierEstimateEngine {

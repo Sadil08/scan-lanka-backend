@@ -49,6 +49,22 @@ public class ProductVariant {
     private Long lorrySuburbCents;
     @Column(name = "lorry_outer_cents")
     private Long lorryOuterCents;
+    @Column(name = "lorry_colombo_gate_cents")
+    private Long lorryColomboGateCents;
+    @Column(name = "lorry_suburb_gate_cents")
+    private Long lorrySuburbGateCents;
+    @Column(name = "lorry_outer_gate_cents")
+    private Long lorryOuterGateCents;
+    @Column(name = "lorry_colombo_enabled", nullable = false)
+    private boolean lorryColomboEnabled = true;
+    @Column(name = "lorry_suburb_enabled", nullable = false)
+    private boolean lorrySuburbEnabled = true;
+    @Column(name = "lorry_outer_enabled", nullable = false)
+    private boolean lorryOuterEnabled = true;
+    @Column(name = "lorry_outer_whatsapp", nullable = false)
+    private boolean lorryOuterWhatsapp = false;
+    @Column(name = "courier_outer_blocked", nullable = false)
+    private boolean courierOuterBlocked = false;
     @Column(name = "whatsapp_only", nullable = false)
     private boolean whatsappOnly = false;
 
@@ -84,6 +100,22 @@ public class ProductVariant {
     public void setLorrySuburbCents(Long c) { this.lorrySuburbCents = c; }
     public Long getLorryOuterCents() { return lorryOuterCents; }
     public void setLorryOuterCents(Long c) { this.lorryOuterCents = c; }
+    public Long getLorryColomboGateCents() { return lorryColomboGateCents; }
+    public void setLorryColomboGateCents(Long c) { this.lorryColomboGateCents = c; }
+    public Long getLorrySuburbGateCents() { return lorrySuburbGateCents; }
+    public void setLorrySuburbGateCents(Long c) { this.lorrySuburbGateCents = c; }
+    public Long getLorryOuterGateCents() { return lorryOuterGateCents; }
+    public void setLorryOuterGateCents(Long c) { this.lorryOuterGateCents = c; }
+    public boolean isLorryColomboEnabled() { return lorryColomboEnabled; }
+    public void setLorryColomboEnabled(boolean v) { this.lorryColomboEnabled = v; }
+    public boolean isLorrySuburbEnabled() { return lorrySuburbEnabled; }
+    public void setLorrySuburbEnabled(boolean v) { this.lorrySuburbEnabled = v; }
+    public boolean isLorryOuterEnabled() { return lorryOuterEnabled; }
+    public void setLorryOuterEnabled(boolean v) { this.lorryOuterEnabled = v; }
+    public boolean isLorryOuterWhatsapp() { return lorryOuterWhatsapp; }
+    public void setLorryOuterWhatsapp(boolean v) { this.lorryOuterWhatsapp = v; }
+    public boolean isCourierOuterBlocked() { return courierOuterBlocked; }
+    public void setCourierOuterBlocked(boolean v) { this.courierOuterBlocked = v; }
     public boolean isWhatsappOnly() { return whatsappOnly; }
     public void setWhatsappOnly(boolean whatsappOnly) { this.whatsappOnly = whatsappOnly; }
 }

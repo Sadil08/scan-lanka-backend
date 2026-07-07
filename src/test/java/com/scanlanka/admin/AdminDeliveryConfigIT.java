@@ -10,6 +10,9 @@ import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierZone;
+import com.scanlanka.checkout.domain.LorryZone;
+import com.scanlanka.checkout.domain.PostalZone;
+import com.scanlanka.checkout.infra.PostalZoneRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,7 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
     @Autowired PasswordEncoder encoder;
     @Autowired ProductService productService;
     @Autowired ProductRepository products;
+    @Autowired PostalZoneRepository postalZones;
 
     @Test
     void courierRateChangeReflectsInGetAndNewQuote() throws Exception {
@@ -41,15 +45,20 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
         mvc.perform(put("/api/admin/delivery-methods/COURIER").cookie(admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
             .andExpect(status().isOk());
-        mvc.perform(put("/api/admin/courier-rate-card/CITY_LIMITS/BETWEEN_2FT_6FT").cookie(admin)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"flatCents\":120000}"))
+        // Courier is offered only for OUTER areas (owner 2026-07-03), so exercise an OUTSTATION rate.
+        mvc.perform(put("/api/admin/courier-rate-card/OUTSTATION/BETWEEN_2FT_6FT").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"flatCents\":160000}"))
             .andExpect(status().isOk());
 
         mvc.perform(get("/api/admin/courier-rate-card").cookie(admin))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[?(@.zone=='CITY_LIMITS' && @.sizeTier=='BETWEEN_2FT_6FT')].flatCents")
-                .value(org.hamcrest.Matchers.hasItem(120000)));
+            .andExpect(jsonPath("$[?(@.zone=='OUTSTATION' && @.sizeTier=='BETWEEN_2FT_6FT')].flatCents")
+                .value(org.hamcrest.Matchers.hasItem(160000)));
 
+        if (!postalZones.existsById("20000")) {
+            postalZones.save(new PostalZone("20000", LorryZone.OUTER, CourierZone.OUTSTATION,
+                "Kandy", "Central Province"));
+        }
         Long id = productService.create(new CreateProductRequest(
             null, "RateBoard " + System.nanoTime(), null, null, null, "X", null, 10, 50000L,
             List.of(), List.of()));
@@ -59,9 +68,9 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
 
         mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
-                    + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\"}"))
+                    + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"20000\"}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.courierEstimateCents").value(120000));
+            .andExpect(jsonPath("$.courierEstimateCents").value(160000));
     }
 
     @Test
@@ -73,6 +82,22 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/admin/delivery-settings").cookie(admin))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.lorryMinBillCents").value(500000));
+    }
+
+    @Test
+    void lorryCapSettingsRoundTrip() throws Exception {
+        // owner 2026-07-07: unconditional cap on the whole Colombo/Suburb lorry total, any order size.
+        Cookie admin = admin("admin-lorrycap@scanlanka.lk");
+        mvc.perform(put("/api/admin/delivery-settings").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"lorryCapColomboCents\":100000,\"lorryCapSuburbCents\":150000}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.lorryCapColomboCents").value(100000))
+            .andExpect(jsonPath("$.lorryCapSuburbCents").value(150000));
+        mvc.perform(get("/api/admin/delivery-settings").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.lorryCapColomboCents").value(100000))
+            .andExpect(jsonPath("$.lorryCapSuburbCents").value(150000));
     }
 
     @Test

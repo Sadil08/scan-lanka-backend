@@ -47,13 +47,13 @@ public class ReceiptService {
             .toList();
         return new ReceiptModel(
             order.getOrderNumber(), order.getContactName(), order.getContactEmail(),
-            order.getFulfilmentType().name(), order.getDeliveryPayment().name(),
-            paymentMethod(order.getId()),
+            order.getFulfilmentType().name(), order.getDeliveryMethod(), order.getDeliveryPayment().name(),
+            paymentMethod(order),
             order.getShipStreet(), order.getShipCity(), order.getShipProvince(), order.getShipPostalCode(),
             order.getBillName(), order.getBillTaxId(), order.getBillStreet(),
             order.getBillCity(), order.getBillProvince(), order.getBillPostalCode(),
             order.getSubtotalCents(), order.getDeliveryCents(), order.getTaxCents(),
-            order.getTotalCents(), order.getDeliveryCodCents(), lines, invoice);
+            order.getTotalCents(), order.getDeliveryCodCents(), order.getCourierEstimateCents(), lines, invoice);
     }
 
     /** Generate PDF once per order; subsequent calls return the stored bytes. */
@@ -86,10 +86,15 @@ public class ReceiptService {
         }
     }
 
-    private String paymentMethod(Long orderId) {
-        return payments.findByOrderId(orderId)
+    /**
+     * COD orders (courier, or lorry paid cash on delivery) never create a {@link Payment} row - there is
+     * no online transaction to record - so the old blanket "ONLINE" fallback was wrong for every COD
+     * order. Fall back to the order's own {@code deliveryPayment} instead.
+     */
+    private String paymentMethod(Order order) {
+        return payments.findByOrderId(order.getId())
             .map(Payment::getMethod)
-            .orElse("ONLINE");
+            .orElse(order.getDeliveryPayment().name());
     }
 
     private static String spec(OrderItem item) {

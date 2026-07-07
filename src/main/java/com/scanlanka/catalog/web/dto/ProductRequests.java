@@ -16,15 +16,24 @@ public final class ProductRequests {
     private ProductRequests() {}
 
     /**
-     * Two-rail delivery attributes (01 FR-CATALOG-14, 17). Set on the product (defaults) or per variant
-     * (per size). A null `lorry_*_cents` means "not lorried into that zone" (the lorry is still offered —
-     * admin arranges far cost manually). The Rs 6,000 lorry minimum is global (`delivery_settings`, 08).
+     * Two-rail delivery attributes (01 FR-CATALOG-14, 17, owner 2026-07-05 — fully admin-controlled).
+     * Set on the product (defaults) or per variant (per size). Per zone: an enabled switch (null ⇒ true),
+     * an optional price, and an optional min-bill gate. Blank price + no gate = lorry offered, admin
+     * arranges the cost manually; gate with no price = the zone's flat gate-met charge when met.
      */
     public record DeliveryAttrs(
-        BoardSizeTier boardSizeTier,                         // null ⇒ not couriable
+        BoardSizeTier boardSizeTier,                         // null ⇒ not couriable (lorry-only item)
         @PositiveOrZero Long lorryColomboCents,
         @PositiveOrZero Long lorrySuburbCents,
         @PositiveOrZero Long lorryOuterCents,
+        @PositiveOrZero Long lorryColomboGateCents,          // min bill per zone (null ⇒ no gate)
+        @PositiveOrZero Long lorrySuburbGateCents,
+        @PositiveOrZero Long lorryOuterGateCents,
+        Boolean lorryColomboEnabled,                         // null ⇒ true (zone on)
+        Boolean lorrySuburbEnabled,
+        Boolean lorryOuterEnabled,
+        Boolean lorryOuterWhatsapp,                          // outer lorry = contact us (glass, big boards)
+        Boolean courierOuterBlocked,                         // no courier to outer Domex areas (6×3/6×4/8×4)
         Boolean whatsappOnly) {}
 
     public record GroupInput(

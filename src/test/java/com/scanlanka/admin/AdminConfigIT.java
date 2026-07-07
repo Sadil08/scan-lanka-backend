@@ -12,7 +12,10 @@ import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
 import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
+import com.scanlanka.checkout.domain.LorryZone;
+import com.scanlanka.checkout.domain.PostalZone;
 import com.scanlanka.checkout.infra.CourierRateCardRepository;
+import com.scanlanka.checkout.infra.PostalZoneRepository;
 import com.scanlanka.order.infra.OrderRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ class AdminConfigIT extends AbstractIntegrationTest {
     @Autowired ProductService productService;
     @Autowired ProductRepository products;
     @Autowired CourierRateCardRepository courierRates;
+    @Autowired PostalZoneRepository postalZones;
     @Autowired OrderRepository orders;
     @Autowired AppUserRepository users;
     @Autowired PasswordEncoder encoder;
@@ -49,9 +53,14 @@ class AdminConfigIT extends AbstractIntegrationTest {
         p.setBoardSizeTier(BoardSizeTier.BETWEEN_2FT_6FT);
         products.save(p);
 
+        // Courier is only offered to OUTER areas (owner 2026-07-03) — quote/place from Kandy (OUTSTATION).
+        if (!postalZones.existsById("20000")) {
+            postalZones.save(new PostalZone("20000", LorryZone.OUTER, CourierZone.OUTSTATION,
+                "Kandy", "Central Province"));
+        }
         String checkout = "{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-            + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\","
-            + "\"ship\":{\"street\":\"1\",\"city\":\"Col\",\"province\":\"WP\",\"postalCode\":\"00100\"},"
+            + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"20000\","
+            + "\"ship\":{\"street\":\"1\",\"city\":\"Kandy\",\"province\":\"CP\",\"postalCode\":\"20000\"},"
             + "\"contactName\":\"A\",\"contactPhone\":\"+9477\",\"contactEmail\":\"a@x.lk\"}";
 
         long estimateBefore = quoteCourierEstimate(checkout);
@@ -63,7 +72,7 @@ class AdminConfigIT extends AbstractIntegrationTest {
         assertThat(snapshot).isEqualTo(estimateBefore);
 
         CourierRateCard r = courierRates.findById(
-            new CourierRateCardId(CourierZone.CITY_LIMITS, BoardSizeTier.BETWEEN_2FT_6FT)).orElseThrow();
+            new CourierRateCardId(CourierZone.OUTSTATION, BoardSizeTier.BETWEEN_2FT_6FT)).orElseThrow();
         r.update(r.getFlatCents() + 50000);
         courierRates.save(r);
 

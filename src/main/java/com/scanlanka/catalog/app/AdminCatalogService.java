@@ -4,6 +4,7 @@ import com.scanlanka.catalog.domain.PriceMode;
 import com.scanlanka.catalog.domain.Product;
 import com.scanlanka.catalog.domain.ProductVariant;
 import com.scanlanka.catalog.domain.SpecGroup;
+import com.scanlanka.catalog.domain.SpecOption;
 import com.scanlanka.catalog.infra.ProductImageRepository;
 import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.infra.ProductVariantRepository;
@@ -14,6 +15,7 @@ import com.scanlanka.catalog.web.dto.ProductResponses.AdminVariantDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.DeliveryAttrsDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductRowDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.CategoryAdminDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.LorryPricingRowDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.SpecGroupDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantDTO;
@@ -22,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -56,6 +60,50 @@ public class AdminCatalogService {
         Product p = products.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
         return toDetail(p);
+    }
+
+    /**
+     * One row per purchasable unit (product if single-priced, else each active variant) across the
+     * WHOLE catalog, flattened for the admin lorry-pricing overview table (08/17, owner 2026-07-07) —
+     * so every size's Colombo/Suburb/Outer cell is visible/editable in one place instead of opening
+     * each product individually.
+     */
+    public List<LorryPricingRowDTO> listLorryPricing() {
+        List<LorryPricingRowDTO> rows = new ArrayList<>();
+        for (Product p : products.findAllByOrderByNameAsc()) {
+            if (p.isArchived()) continue;
+            if (p.getPriceMode() == PriceMode.SINGLE) {
+                rows.add(new LorryPricingRowDTO(p.getId(), p.getName(), null, null, productDelivery(p)));
+                continue;
+            }
+            for (ProductVariant v : variants.findByProductId(p.getId())) {
+                if (!v.isActive()) continue;
+                rows.add(new LorryPricingRowDTO(p.getId(), p.getName(), v.getId(),
+                    sizeLabel(v.getOptionsSignature()), variantDelivery(v)));
+            }
+        }
+        return rows;
+    }
+
+    /** Resolves a variant's (usually single-option) signature to its human label, e.g. "6 x 4". */
+    private String sizeLabel(String optionsSignature) {
+        if (optionsSignature == null || optionsSignature.isBlank()) return null;
+        return Arrays.stream(optionsSignature.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .map(this::parseOptionId)
+            .filter(id -> id != null)
+            .map(id -> options.findById(id).map(SpecOption::getValue).orElse(null))
+            .filter(v -> v != null)
+            .collect(Collectors.joining(" / "));
+    }
+
+    private Long parseOptionId(String s) {
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public List<CategoryAdminDTO> listCategories() {
@@ -121,12 +169,18 @@ public class AdminCatalogService {
 
     private static DeliveryAttrsDTO productDelivery(Product p) {
         return new DeliveryAttrsDTO(tierName(p.getBoardSizeTier()), p.getLorryColomboCents(), p.getLorrySuburbCents(),
-            p.getLorryOuterCents(), p.isWhatsappOnly());
+            p.getLorryOuterCents(),
+            p.getLorryColomboGateCents(), p.getLorrySuburbGateCents(), p.getLorryOuterGateCents(),
+            p.isLorryColomboEnabled(), p.isLorrySuburbEnabled(), p.isLorryOuterEnabled(),
+            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isWhatsappOnly());
     }
 
     private static DeliveryAttrsDTO variantDelivery(ProductVariant v) {
         return new DeliveryAttrsDTO(tierName(v.getBoardSizeTier()), v.getLorryColomboCents(), v.getLorrySuburbCents(),
-            v.getLorryOuterCents(), v.isWhatsappOnly());
+            v.getLorryOuterCents(),
+            v.getLorryColomboGateCents(), v.getLorrySuburbGateCents(), v.getLorryOuterGateCents(),
+            v.isLorryColomboEnabled(), v.isLorrySuburbEnabled(), v.isLorryOuterEnabled(),
+            v.isLorryOuterWhatsapp(), v.isCourierOuterBlocked(), v.isWhatsappOnly());
     }
 
     private static String tierName(com.scanlanka.checkout.domain.BoardSizeTier tier) {

@@ -10,7 +10,6 @@ import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.LorryZone;
 import com.scanlanka.checkout.domain.PostalZone;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.scanlanka.checkout.infra.DeliverySettingsRepository;
 import com.scanlanka.checkout.infra.PostalZoneRepository;
 import com.scanlanka.order.domain.DeliveryPayment;
 import com.scanlanka.order.domain.Order;
@@ -38,21 +37,19 @@ class CheckoutIT extends AbstractIntegrationTest {
     @Autowired ProductService productService;
     @Autowired ProductRepository products;
     @Autowired PostalZoneRepository postalZones;
-    @Autowired DeliverySettingsRepository deliverySettings;
     @Autowired OrderRepository orders;
     @Autowired ObjectMapper objectMapper;
 
     @BeforeEach
-    void useRealGate() {
-        if (!postalZones.existsById("00100")) {
+    void seedPostals() {
+        if (!postalZones.existsById("00100")) {          // Colombo — in-house-lorry-only zone
             postalZones.save(new PostalZone("00100", LorryZone.COLOMBO, CourierZone.CITY_LIMITS,
                 "Colombo", "Western Province"));
         }
-        // the base sets the gate to 0 for simple order-placing ITs; restore the real Rs 6,000 here.
-        deliverySettings.findFirstByOrderByIdAsc().ifPresent(s -> {
-            s.setLorryMinBillCents(600000);
-            deliverySettings.save(s);
-        });
+        if (!postalZones.existsById("20000")) {          // Kandy — OUTER zone (courier offered here)
+            postalZones.save(new PostalZone("20000", LorryZone.OUTER, CourierZone.OUTSTATION,
+                "Kandy", "Central Province"));
+        }
     }
 
     /** A single-priced product with a Colombo lorry charge and a courier size tier. */
@@ -63,6 +60,18 @@ class CheckoutIT extends AbstractIntegrationTest {
         Product p = products.findById(id).orElseThrow();
         p.setLorryColomboCents(lorryColomboCents);
         p.setBoardSizeTier(boardSizeTier);
+        products.save(p);
+        return id;
+    }
+
+    /** A small gated product: no priced Colombo cell, a Rs-threshold gate for the Colombo zone. */
+    private Long seedGatedProduct(long priceCents, long colomboGateCents) {
+        Long id = productService.create(new CreateProductRequest(
+            null, "Small " + System.nanoTime(), null, null, null, "Boards", null, 100, priceCents,
+            List.of(), List.of()));
+        Product p = products.findById(id).orElseThrow();
+        p.setLorryColomboGateCents(colomboGateCents);
+        p.setBoardSizeTier(BoardSizeTier.UNDER_2FT);
         products.save(p);
         return id;
     }
@@ -81,8 +90,9 @@ class CheckoutIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void lorryUnavailableUnderMinBill() throws Exception {
-        Long id = seedProduct(250, 100000L, BoardSizeTier.BETWEEN_2FT_6FT); // Rs 2.50 ≤ Rs 6,000 gate
+    void lorryUnavailableUnderGateThreshold() throws Exception {
+        // Per-cell gate (owner 2026-07-03): Rs 3,000 threshold, subtotal Rs 2.50 ≤ gate → no lorry.
+        Long id = seedGatedProduct(250, 300000L);
         mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
                     + "\"deliveryMethod\":\"COMPANY_LORRY\",\"postalCode\":\"00100\"}"))
@@ -92,16 +102,51 @@ class CheckoutIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void courierQuoteIsFullCodWithSizeTierEstimate() throws Exception {
+    void courierAvailableInColomboCityLimits() throws Exception {
+        // owner 2026-07-03: courier is offered everywhere; Colombo city-limits uses the Domex CITY_LIMITS rate.
         Long id = seedProduct(250, 100000L, BoardSizeTier.BETWEEN_2FT_6FT);
         mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
                     + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.available").value(true))
+            .andExpect(jsonPath("$.courierEstimateCents").value(100000)); // CITY_LIMITS 2–6 ft = Rs 1,000
+    }
+
+    @Test
+    void largeBoardBlockedFromCourierToOuterButOkToCity() throws Exception {
+        // 6×4/8×4/6×3 can't be couriered to outer Domex areas (owner 2026-07-03) — contact us there.
+        Long id = seedProduct(250, 100000L, BoardSizeTier.BETWEEN_2FT_6FT);
+        Product p = products.findById(id).orElseThrow();
+        p.setCourierOuterBlocked(true);
+        products.save(p);
+
+        mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
+                    + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"20000\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.available").value(false))
+            .andExpect(jsonPath("$.reason").value("OVERSIZE_OUTER"));
+
+        mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
+                    + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.available").value(true))     // same board couriers fine to city-limits
+            .andExpect(jsonPath("$.courierEstimateCents").value(100000));
+    }
+
+    @Test
+    void courierQuoteInOuterZoneIsFullCodWithSizeTierEstimate() throws Exception {
+        Long id = seedProduct(250, 100000L, BoardSizeTier.BETWEEN_2FT_6FT);
+        mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
+                    + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"20000\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.available").value(true))
             .andExpect(jsonPath("$.onlineTotalCents").value(0))
-            .andExpect(jsonPath("$.courierEstimateCents").value(100000))
-            .andExpect(jsonPath("$.approxTotalCents").value(100250));
+            .andExpect(jsonPath("$.courierEstimateCents").value(150000))  // OUTSTATION, 2–6 ft = Rs 1,500
+            .andExpect(jsonPath("$.approxTotalCents").value(150250));
     }
 
     @Test
@@ -136,7 +181,7 @@ class CheckoutIT extends AbstractIntegrationTest {
         MvcResult res = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
                     + "\"deliveryMethod\":\"COURIER\","
-                    + "\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
+                    + "\"ship\":{\"street\":\"1 Main\",\"city\":\"Kandy\",\"province\":\"Central\",\"postalCode\":\"20000\"},"
                     + "\"contactName\":\"Mark\",\"contactPhone\":\"+94770000000\",\"contactEmail\":\"mark@x.lk\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.onlineTotalCents").value(0))   // full COD — nothing online
@@ -147,12 +192,47 @@ class CheckoutIT extends AbstractIntegrationTest {
         assertThat(o.getStatus()).isEqualTo(OrderStatus.CONFIRMED);      // confirmed on placement, not pending
         assertThat(o.getDeliveryPayment()).isEqualTo(DeliveryPayment.COD);
         assertThat(o.getTotalCents()).isZero();
-        assertThat(o.getCourierEstimateCents()).isEqualTo(50000);        // Rs 500 under 2 ft city limits
+        assertThat(o.getCourierEstimateCents()).isEqualTo(100000);       // Rs 1,000 under 2 ft OUTSTATION
         assertThat(products.findById(id).orElseThrow().getStockQty()).isEqualTo(stockBefore - 1); // decremented now
 
         // FR-PAY-15: a courier (full-COD) order cannot be paid online
         mvc.perform(post("/api/payments/payhere/initiate").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"orderNumber\":\"" + orderNumber + "\"}"))
             .andExpect(status().isConflict());
+    }
+
+    @Test
+    void lorryCodOrderIsConfirmedAndCollectsDoorTotalInCash() throws Exception {
+        // owner 2026-07-03: lorry cash-on-delivery — nothing online, driver collects product + lorry charge.
+        Long id = seedProduct(700000, 100000L, BoardSizeTier.BETWEEN_2FT_6FT); // Rs 7,000 + Rs 1,000 lorry
+        int stockBefore = products.findById(id).orElseThrow().getStockQty();
+
+        MvcResult res = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"paymentChoice\":\"COD\","
+                    + "\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
+                    + "\"contactName\":\"Mark\",\"contactPhone\":\"+94770000000\",\"contactEmail\":\"mark@x.lk\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.onlineTotalCents").value(0))   // COD — nothing charged online
+            .andReturn();
+        String orderNumber = objectMapper.readTree(res.getResponse().getContentAsString()).get("orderNumber").asText();
+
+        Order o = orders.findByOrderNumber(orderNumber).orElseThrow();
+        assertThat(o.getStatus()).isEqualTo(OrderStatus.CONFIRMED);      // confirmed on placement like courier
+        assertThat(o.getDeliveryPayment()).isEqualTo(DeliveryPayment.COD);
+        assertThat(o.getTotalCents()).isZero();                          // nothing online
+        assertThat(o.getDeliveryCodCents()).isEqualTo(800000);          // door total: Rs 7,000 + Rs 1,000
+        assertThat(products.findById(id).orElseThrow().getStockQty()).isEqualTo(stockBefore - 1);
+    }
+
+    @Test
+    void courierOrderRejectsExplicitOnlinePayment() throws Exception {
+        Long id = seedProduct(250, null, BoardSizeTier.UNDER_2FT);
+        mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
+                    + "\"deliveryMethod\":\"COURIER\",\"paymentChoice\":\"ONLINE\","
+                    + "\"ship\":{\"street\":\"1 Main\",\"city\":\"Kandy\",\"province\":\"Central\",\"postalCode\":\"20000\"},"
+                    + "\"contactName\":\"Mark\",\"contactPhone\":\"+94770000000\",\"contactEmail\":\"mark@x.lk\"}"))
+            .andExpect(status().isUnprocessableEntity());
     }
 }

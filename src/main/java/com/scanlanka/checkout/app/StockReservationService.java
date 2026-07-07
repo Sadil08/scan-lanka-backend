@@ -75,14 +75,25 @@ public class StockReservationService {
         reservations.releaseForOrder(orderId);
     }
 
+    /**
+     * @return the variant/product's stock cap, or {@code null} for unlimited (never track a physical
+     * reservation for a not-found row here; the caller already validated existence via {@code catalog}).
+     * Not found ⇒ 0 (blocks reservation) — but a found row with a null {@code stockQty} must stay null,
+     * not collapse to 0: {@code Optional.map} treats a null mapper result as absence, so a plain
+     * {@code .map(Product::getStockQty).orElse(0)} would silently turn "unlimited" into "zero stock" and
+     * reject every order for every unlimited-stock item. Resolve the entity first, then read the field.
+     */
     private Integer physicalStock(Long productId, Long variantId) {
+        // Explicit if/else, not a ternary: `cond ? 0 : someInteger` would force-unbox the Integer branch
+        // to match the int literal, NPE-ing exactly when getStockQty() is null (unlimited stock).
         if (variantId != null) {
-            return variants.findById(variantId)
-                .filter(v -> v.getProductId().equals(productId))
-                .map(v -> v.getStockQty())
-                .orElse(0);
+            var v = variants.findById(variantId).filter(x -> x.getProductId().equals(productId)).orElse(null);
+            if (v == null) return 0;
+            return v.getStockQty();
         }
-        return products.findById(productId).map(p -> p.getStockQty()).orElse(0);
+        var p = products.findById(productId).orElse(null);
+        if (p == null) return 0;
+        return p.getStockQty();
     }
 
     private static ResponseStatusException stockExceeded() {

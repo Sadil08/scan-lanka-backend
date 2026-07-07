@@ -54,14 +54,15 @@ class CheckoutServiceTest {
     void freeLorryRail() {
         when(taxConfigs.findFirstByOrderByIdAsc()).thenReturn(Optional.empty()); // 0% tax → obvious arithmetic
         DeliveryQuote dq = new DeliveryQuote(false, true,
-            List.of(new Option(DeliveryMethod.COMPANY_LORRY, true, null, 0, 0, false)));
+            List.of(new Option(DeliveryMethod.COMPANY_LORRY, true, null, 0, 0, false, 0, List.of())));
         when(deliveryOptions.options(any(), any(), any(), anyLong())).thenReturn(dq);
     }
 
     private void stubLine(long productId, long unitPriceCents, Integer stock, int available) {
         when(catalog.resolveOrderLine(eq(productId), isNull()))
             .thenReturn(Optional.of(new OrderLine(productId, null, "SKU-" + productId, "Item " + productId,
-                null, unitPriceCents, stock, null, null, null, null, false)));
+                null, unitPriceCents, stock, null, null, null, null, null, null, null,
+                true, true, true, false, false, false)));
         when(reservations.availableQuantity(eq(productId), isNull(), stock == null ? isNull() : eq(stock)))
             .thenReturn(available);
     }
@@ -98,7 +99,7 @@ class CheckoutServiceTest {
         when(orderService.createDraft(any())).thenReturn(order);
 
         var placed = checkout.place(new PlaceInput(List.of(new ItemInput(1L, null, 2)),
-            DeliveryMethod.COMPANY_LORRY, null, null,
+            DeliveryMethod.COMPANY_LORRY, null /* paymentChoice ⇒ ONLINE */, null, null,
             "Buyer", "0770000000", "buyer@example.com", null, "buyer@example.com"));
 
         assertThat(placed.orderNumber()).isEqualTo("SL-TEST-1");

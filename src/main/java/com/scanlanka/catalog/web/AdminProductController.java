@@ -10,6 +10,7 @@ import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductDetailDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductRowDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.LorryPricingRowDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantPreviewResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -58,6 +59,12 @@ public class AdminProductController {
         return adminCatalog.getProduct(id);
     }
 
+    /** Lorry-pricing overview (08/17, owner 2026-07-07): one row per size across the whole catalog. */
+    @GetMapping("/lorry-pricing")
+    public List<LorryPricingRowDTO> lorryPricing() {
+        return adminCatalog.listLorryPricing();
+    }
+
     @PostMapping
     public ResponseEntity<Map<String, Long>> create(@Valid @RequestBody CreateProductRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", productService.create(req)));
@@ -80,6 +87,14 @@ public class AdminProductController {
     public ResponseEntity<Void> setVariantDelivery(@PathVariable Long id, @PathVariable Long variantId,
                                                    @Valid @RequestBody DeliveryUpdateRequest req) {
         productService.updateVariantDelivery(variantId, req.delivery());
+        return ResponseEntity.ok().build();
+    }
+
+    /** Product-level delivery-only update (single-priced products) — used by the lorry-pricing overview. */
+    @PatchMapping("/{id}/delivery")
+    public ResponseEntity<Void> setProductDelivery(@PathVariable Long id,
+                                                   @Valid @RequestBody DeliveryUpdateRequest req) {
+        productService.updateProductDelivery(id, req.delivery());
         return ResponseEntity.ok().build();
     }
 

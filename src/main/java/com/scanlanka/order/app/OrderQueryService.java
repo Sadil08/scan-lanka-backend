@@ -84,6 +84,7 @@ public class OrderQueryService {
             o.getOrderNumber(), o.getStatus().name(), o.getSubtotalCents(), o.getDeliveryCents(),
             o.getTaxCents(), o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getDeliveryCodCents(),
             o.getFulfilmentType().name(), o.getDeliveryPayment().name(),
+            o.getDeliveryMethod(), o.getCourierEstimateCents(),
             o.getCarrier(), o.getTrackingRef(),
             o.getShipStreet(), o.getShipCity(), o.getShipProvince(), o.getShipPostalCode(),
             lines, timeline);

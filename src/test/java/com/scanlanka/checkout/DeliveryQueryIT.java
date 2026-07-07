@@ -16,10 +16,14 @@ class DeliveryQueryIT extends AbstractIntegrationTest {
 
     @Test
     void locationsAndPostalCodesArePublic() throws Exception {
-        // base seeds postal_zone 00100 → lorry zone COLOMBO, district Colombo
+        // base seeds postal_zone 00100 → lorry zone COLOMBO, district Colombo. Locations are summarized
+        // as district + count (not a flat postal-code dump — the real set runs to ~1,800 codes, 17).
         mvc.perform(get("/api/delivery/locations"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[?(@.zone == 'COLOMBO')].postalCodes[0]").value(org.hamcrest.Matchers.hasItem("00100")));
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                .string(org.hamcrest.Matchers.allOf(
+                    org.hamcrest.Matchers.containsString("\"zone\":\"COLOMBO\""),
+                    org.hamcrest.Matchers.containsString("\"district\":\"Colombo\""))));
 
         mvc.perform(get("/api/delivery/postal-codes").param("q", "001"))
             .andExpect(status().isOk())

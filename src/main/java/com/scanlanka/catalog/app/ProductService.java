@@ -163,12 +163,33 @@ public class ProductService {
         cacheEvictor.evictAll();
     }
 
-    /** Apply the delivery block wholesale (nulls included, so a charge can be cleared). */
+    /**
+     * Product-level delivery-only update (single-priced products, no variants) — the lorry-pricing
+     * overview (08/17, owner 2026-07-07) edits each row without resending the whole product payload.
+     */
+    @Transactional
+    public void updateProductDelivery(Long productId, DeliveryAttrs d) {
+        Product p = products.findById(productId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+        applyDelivery(p, d);
+        products.save(p);
+        cacheEvictor.evictAll();
+    }
+
+    /** Apply the delivery block wholesale (nulls included, so a charge/gate can be cleared). */
     private static void applyDelivery(Product p, DeliveryAttrs d) {
         p.setBoardSizeTier(d.boardSizeTier());
         p.setLorryColomboCents(d.lorryColomboCents());
         p.setLorrySuburbCents(d.lorrySuburbCents());
         p.setLorryOuterCents(d.lorryOuterCents());
+        p.setLorryColomboGateCents(d.lorryColomboGateCents());
+        p.setLorrySuburbGateCents(d.lorrySuburbGateCents());
+        p.setLorryOuterGateCents(d.lorryOuterGateCents());
+        p.setLorryColomboEnabled(!Boolean.FALSE.equals(d.lorryColomboEnabled()));  // null ⇒ on
+        p.setLorrySuburbEnabled(!Boolean.FALSE.equals(d.lorrySuburbEnabled()));
+        p.setLorryOuterEnabled(!Boolean.FALSE.equals(d.lorryOuterEnabled()));
+        p.setLorryOuterWhatsapp(Boolean.TRUE.equals(d.lorryOuterWhatsapp()));
+        p.setCourierOuterBlocked(Boolean.TRUE.equals(d.courierOuterBlocked()));
         p.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
     }
 
@@ -177,6 +198,14 @@ public class ProductService {
         v.setLorryColomboCents(d.lorryColomboCents());
         v.setLorrySuburbCents(d.lorrySuburbCents());
         v.setLorryOuterCents(d.lorryOuterCents());
+        v.setLorryColomboGateCents(d.lorryColomboGateCents());
+        v.setLorrySuburbGateCents(d.lorrySuburbGateCents());
+        v.setLorryOuterGateCents(d.lorryOuterGateCents());
+        v.setLorryColomboEnabled(!Boolean.FALSE.equals(d.lorryColomboEnabled()));
+        v.setLorrySuburbEnabled(!Boolean.FALSE.equals(d.lorrySuburbEnabled()));
+        v.setLorryOuterEnabled(!Boolean.FALSE.equals(d.lorryOuterEnabled()));
+        v.setLorryOuterWhatsapp(Boolean.TRUE.equals(d.lorryOuterWhatsapp()));
+        v.setCourierOuterBlocked(Boolean.TRUE.equals(d.courierOuterBlocked()));
         v.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
     }
 
