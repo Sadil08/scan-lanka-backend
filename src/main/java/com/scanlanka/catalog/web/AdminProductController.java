@@ -117,10 +117,11 @@ public class AdminProductController {
     public ResponseEntity<ImageService.StoredImageView> uploadImage(
         @PathVariable Long id,
         @RequestParam("file") MultipartFile file,
-        @RequestParam(name = "isPreview", defaultValue = "false") boolean isPreview) {
+        @RequestParam(name = "isPreview", defaultValue = "false") boolean isPreview,
+        @RequestParam(name = "variantId", required = false) Long variantId) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
-                .body(imageService.upload(id, file.getBytes(), isPreview));
+                .body(imageService.upload(id, variantId, file.getBytes(), isPreview));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -129,6 +130,14 @@ public class AdminProductController {
     @PatchMapping("/{id}/images/{imageId}/preview")
     public ImageService.StoredImageView setPreview(@PathVariable Long id, @PathVariable Long imageId) {
         return imageService.setPreview(id, imageId);
+    }
+
+    public record ImageVariantRequest(Long variantId) {}
+
+    @PatchMapping("/{id}/images/{imageId}/variant")
+    public ImageService.StoredImageView setImageVariant(@PathVariable Long id, @PathVariable Long imageId,
+                                                         @RequestBody ImageVariantRequest req) {
+        return imageService.setVariant(id, imageId, req.variantId());
     }
 
     @DeleteMapping("/{id}/images/{imageId}")

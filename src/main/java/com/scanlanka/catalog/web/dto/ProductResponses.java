@@ -14,6 +14,9 @@ public final class ProductResponses {
 
     public record OptionDTO(long id, String value) {}
 
+    /** {@code variantId} null ⇒ product-level default image, shown when no size-specific image matches. */
+    public record ImageDTO(String url, Long variantId) {}
+
     public record SpecGroupDTO(long id, String name, boolean priceAffecting, List<OptionDTO> options) {}
 
     public record VariantDTO(long id, String sku, long priceCents, String optionsSignature, String availability) {}
@@ -34,7 +37,7 @@ public final class ProductResponses {
         long id, String slug, String name, String description, String details,
         String priceMode, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
         String availability,
-        List<String> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants,
+        List<ImageDTO> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants,
         boolean whatsappOnly, String boardSizeTier, boolean couriable) {}
 
     public record ParentFacetDTO(long id, String name, String slug) {}

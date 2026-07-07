@@ -13,6 +13,7 @@ import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.web.dto.ProductResponses.CatalogFacetsDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.CategoryCountDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.ImageDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ParentFacetDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductChipDTO;
@@ -131,8 +132,9 @@ public class ProductQueryService {
             .map(v -> new VariantDTO(v.getId(), v.getSku(), v.getPriceCents(),
                 v.getOptionsSignature(), StockAvailability.fromQty(v.getStockQty())))
             .toList();
-        List<String> imageUrls = images.findByProductIdOrderByDisplayOrderAsc(p.getId()).stream()
-            .map(i -> i.getUrl()).toList();
+        List<ImageDTO> imageUrls = images.findByProductIdOrderByDisplayOrderAsc(p.getId()).stream()
+            .map(i -> new ImageDTO(i.getUrl(), i.getVariantId()))
+            .toList();
         String avail = p.getPriceMode() == PriceMode.SINGLE
             ? StockAvailability.fromQty(p.getStockQty())
             : StockAvailability.fromVariants(activeVariants);
