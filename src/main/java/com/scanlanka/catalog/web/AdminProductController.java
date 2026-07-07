@@ -1,6 +1,7 @@
 package com.scanlanka.catalog.web;
 
 import com.scanlanka.catalog.app.AdminCatalogService;
+import com.scanlanka.catalog.app.BulkProductImageService;
 import com.scanlanka.catalog.app.ImageService;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.ActiveRequest;
@@ -41,12 +42,14 @@ public class AdminProductController {
     private final ProductService productService;
     private final AdminCatalogService adminCatalog;
     private final ImageService imageService;
+    private final BulkProductImageService bulkImages;
 
     public AdminProductController(ProductService productService, AdminCatalogService adminCatalog,
-                                  ImageService imageService) {
+                                  ImageService imageService, BulkProductImageService bulkImages) {
         this.productService = productService;
         this.adminCatalog = adminCatalog;
         this.imageService = imageService;
+        this.bulkImages = bulkImages;
     }
 
     @GetMapping
@@ -144,5 +147,22 @@ public class AdminProductController {
     public ResponseEntity<Void> deleteImage(@PathVariable Long id, @PathVariable Long imageId) {
         imageService.delete(id, imageId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Bulk image import from one zip (owner 2026-07-07). {@code dryRun=true} (default) maps filenames
+     * to products/sizes without writing anything, so the admin reviews the plan first; {@code
+     * dryRun=false} actually stores the mappable images. Filename convention in BulkProductImageService.
+     */
+    @PostMapping(value = "/images/bulk-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public BulkProductImageService.ImportReport bulkImport(
+        @RequestParam("file") MultipartFile file,
+        @RequestParam(name = "dryRun", defaultValue = "true") boolean dryRun) {
+        try {
+            byte[] zip = file.getBytes();
+            return dryRun ? bulkImages.preview(zip) : bulkImages.apply(zip);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
