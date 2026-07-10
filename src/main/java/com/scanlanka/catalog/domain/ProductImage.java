@@ -42,6 +42,10 @@ public class ProductImage {
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 
+    /** SHA-256 of the uploaded bytes; lets a re-upload of the same photo be skipped (dedupe). Nullable. */
+    @Column(name = "content_hash")
+    private String contentHash;
+
     protected ProductImage() {}
 
     public ProductImage(Long productId, Long variantId, String storageKey, String url, boolean preview, int displayOrder) {
@@ -65,4 +69,6 @@ public class ProductImage {
     public void setPreview(boolean preview) { this.preview = preview; }
     public int getDisplayOrder() { return displayOrder; }
     public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
+    public String getContentHash() { return contentHash; }
+    public void setContentHash(String contentHash) { this.contentHash = contentHash; }
 }

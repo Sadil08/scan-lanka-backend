@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ProductImageRepository extends JpaRepository<ProductImage, Long> {
     List<ProductImage> findByProductIdOrderByDisplayOrderAsc(Long productId);
     Optional<ProductImage> findFirstByProductIdAndPreviewTrue(Long productId);
+    boolean existsByProductIdAndContentHash(Long productId, String contentHash);
 }

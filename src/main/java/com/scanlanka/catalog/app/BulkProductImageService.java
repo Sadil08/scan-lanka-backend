@@ -10,6 +10,7 @@ import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.infra.ProductVariantRepository;
 import com.scanlanka.catalog.infra.SpecGroupRepository;
 import com.scanlanka.catalog.infra.SpecOptionRepository;
+import com.scanlanka.shared.security.Hashing;
 import com.scanlanka.shared.storage.ImageStorage;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -47,7 +48,8 @@ import java.util.zip.ZipInputStream;
  * <p>{@link #preview} maps without writing anything (dry run the admin reviews first); {@link #apply}
  * re-encodes + stores the mappable images and inserts the rows. Hostile-zip hardening: entry count/
  * byte caps, basename only (no zip-slip), non-images skipped, per-image failures isolated (one bad
- * file never aborts the batch). Re-running adds images again — there is no dedupe (admin deletes).
+ * file never aborts the batch). A photo already on the product (same SHA-256) is skipped, so re-running
+ * an import — or a double-click — never piles up duplicates.
  */
 @Service
 public class BulkProductImageService {
@@ -83,7 +85,7 @@ public class BulkProductImageService {
         this.cacheEvictor = cacheEvictor;
     }
 
-    public enum RowStatus { OK_VARIANT, OK_PRODUCT, NO_PRODUCT, SIZE_NOT_MATCHED, BAD_IMAGE, NOT_AN_IMAGE }
+    public enum RowStatus { OK_VARIANT, OK_PRODUCT, DUPLICATE, NO_PRODUCT, SIZE_NOT_MATCHED, BAD_IMAGE, NOT_AN_IMAGE }
 
     /** One image entry's mapping result. In preview, OK_* = "would import"; in apply = "imported". */
     public record ImportRow(String filename, String productSlug, String sizeToken,
@@ -91,7 +93,7 @@ public class BulkProductImageService {
                             RowStatus status, String message) {}
 
     public record ImportReport(int totalEntries, int imageEntries, int matchedVariant, int matchedProduct,
-                               int unmatched, List<ImportRow> rows) {}
+                               int duplicate, int unmatched, List<ImportRow> rows) {}
 
     @Transactional(readOnly = true)
     public ImportReport preview(byte[] zipBytes) {
@@ -107,7 +109,7 @@ public class BulkProductImageService {
 
     private ImportReport process(byte[] zipBytes, boolean persist) {
         List<ImportRow> rows = new ArrayList<>();
-        int totalEntries = 0, imageEntries = 0, okVariant = 0, okProduct = 0, unmatched = 0;
+        int totalEntries = 0, imageEntries = 0, okVariant = 0, okProduct = 0, duplicate = 0, unmatched = 0;
         long totalUncompressed = 0;
 
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
@@ -135,6 +137,7 @@ public class BulkProductImageService {
                 switch (row.status()) {
                     case OK_VARIANT -> okVariant++;
                     case OK_PRODUCT -> okProduct++;
+                    case DUPLICATE -> duplicate++;
                     default -> unmatched++;
                 }
             }
@@ -146,7 +149,7 @@ public class BulkProductImageService {
         if (imageEntries == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image files found in the zip");
         }
-        return new ImportReport(totalEntries, imageEntries, okVariant, okProduct, unmatched, rows);
+        return new ImportReport(totalEntries, imageEntries, okVariant, okProduct, duplicate, unmatched, rows);
     }
 
     private ImportRow mapAndMaybeStore(String filename, byte[] data, boolean persist) {
@@ -174,6 +177,15 @@ public class BulkProductImageService {
                 "Size '" + sizeToken + "' didn't match any of this product's sizes — rename and re-import");
         }
 
+        // Dedupe guard: the exact same photo already on this product is skipped, so re-running an import
+        // (or a double-click) doesn't pile up duplicates. Reported in preview too, so it's visible first.
+        String hash = Hashing.sha256Hex(data);
+        if (images.existsByProductIdAndContentHash(p.getId(), hash)) {
+            return row(filename, slug, sizeToken, p.getId(), p.getName(),
+                variant != null ? variant.getId() : null, variant != null ? sizeToken : null,
+                RowStatus.DUPLICATE, "Already on this product — skipped");
+        }
+
         // Validate/re-encode + store only when applying; preview reports mapping without touching disk.
         if (persist) {
             byte[] png;
@@ -186,8 +198,10 @@ public class BulkProductImageService {
             }
             ImageStorage.StoredImage stored = storage.store(png, processing.outputExtension());
             int order = images.findByProductIdOrderByDisplayOrderAsc(p.getId()).size();
-            images.save(new ProductImage(p.getId(), variant != null ? variant.getId() : null,
-                stored.key(), stored.url(), false, order));
+            ProductImage img = new ProductImage(p.getId(), variant != null ? variant.getId() : null,
+                stored.key(), stored.url(), false, order);
+            img.setContentHash(hash);
+            images.save(img);
         }
 
         if (variant != null) {
