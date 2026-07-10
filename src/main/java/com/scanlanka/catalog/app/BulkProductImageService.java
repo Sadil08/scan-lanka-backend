@@ -35,9 +35,11 @@ import java.util.zip.ZipInputStream;
  * split on double-underscore.
  * <ul>
  *   <li>token 0 = product slug (exact match on {@code product.slug}).</li>
- *   <li>token 1 (optional) = size — matched to a price-affecting spec option value (fuzzy: spaces,
- *       {@code x}/{@code ×}, and fractions like {@code 1 1/2} ⇔ {@code 1.5} are normalised). No match
- *       ⇒ the image attaches at product level and the row is flagged so the admin can rename.</li>
+ *   <li>token 1 (optional) = size, but only when it reads as a dimension (digit-x-digit, e.g. {@code 4x3},
+ *       {@code 1.5x1.5}) — matched to a price-affecting spec option value (fuzzy: spaces, {@code x}/{@code ×},
+ *       and fractions like {@code 1 1/2} ⇔ {@code 1.5} are normalised). A dimension that matches no size is
+ *       skipped (flagged), so the admin renames and re-imports. A non-dimension token (e.g. {@code 2},
+ *       {@code front}) is treated as a label, letting a product carry several general photos.</li>
  *   <li>token 2+ (optional) = free label so several photos can share one product/size (e.g. {@code __2},
  *       {@code __front}).</li>
  * </ul>
@@ -56,6 +58,7 @@ public class BulkProductImageService {
     private static final Pattern IMAGE_EXT = Pattern.compile(".*\\.(png|jpe?g|webp|gif)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern MIXED_FRACTION = Pattern.compile("(\\d+)\\s+(\\d+)/(\\d+)");
     private static final Pattern SIMPLE_FRACTION = Pattern.compile("(\\d+)/(\\d+)");
+    private static final Pattern DIMENSION = Pattern.compile(".*\\dx\\d.*"); // digit-x-digit after normalising
 
     private final ProductRepository products;
     private final ProductVariantRepository variants;
@@ -158,11 +161,14 @@ public class BulkProductImageService {
         }
         Product p = product.get();
 
-        ProductVariant variant = sizeToken == null ? null : matchVariant(p, sizeToken);
+        // token[1] is a SIZE only when it looks like a dimension (has digit-x-digit, e.g. 4x3, 1.5x1.5).
+        // Anything else (2, front, angle…) is just a label so a product can have several general photos.
+        boolean sizeLike = sizeToken != null && looksLikeDimension(sizeToken);
+        ProductVariant variant = sizeLike ? matchVariant(p, sizeToken) : null;
 
-        // A filename that names a size we can't match is a mistake to fix, not something to silently
-        // dump at product level — skip it (nothing stored) so the admin renames and re-imports cleanly.
-        if (sizeToken != null && variant == null) {
+        // A filename that clearly names a size we can't match is a mistake to fix, not something to
+        // silently dump at product level — skip it so the admin renames and re-imports cleanly.
+        if (sizeLike && variant == null) {
             return row(filename, slug, sizeToken, p.getId(), p.getName(), null, null,
                 RowStatus.SIZE_NOT_MATCHED,
                 "Size '" + sizeToken + "' didn't match any of this product's sizes — rename and re-import");
@@ -245,6 +251,11 @@ public class BulkProductImageService {
      * {@code 1/2}→{@code 0.5}), drop spaces and trailing decimal zeros. So "1 1/2 x 1 1/2" and "1.5x1.5"
      * both collapse to {@code 1.5x1.5}.
      */
+    /** True when a token reads as a board dimension (has digit-x-digit) rather than a plain label. */
+    static boolean looksLikeDimension(String token) {
+        return DIMENSION.matcher(normSize(token)).matches();
+    }
+
     static String normSize(String s) {
         if (s == null) return "";
         String t = s.toLowerCase().trim().replace('×', 'x').replace('*', 'x');

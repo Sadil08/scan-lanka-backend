@@ -20,9 +20,9 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
   servlet:
-    multipart:                          # image upload limits (01 NFR-CATALOG-1)
-      max-file-size: 5MB
-      max-request-size: 6MB
+    multipart:                          # transport cap; single images still capped at 5MB in ImageProcessing.
+      max-file-size: 200MB              # a bulk-image zip can be large (many product photos)
+      max-request-size: 205MB
   mail:                                 # SMTP for SmtpEmailProvider (10 D-Q1) — creds from env only
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
