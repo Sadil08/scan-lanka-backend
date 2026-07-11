@@ -198,8 +198,11 @@ public class BulkProductImageService {
             }
             ImageStorage.StoredImage stored = storage.store(png, processing.outputExtension());
             int order = images.findByProductIdOrderByDisplayOrderAsc(p.getId()).size();
+            // Give the product a card thumbnail: the first product-level image becomes the preview if it
+            // has none yet (otherwise cards/listing show "No image" despite a full gallery).
+            boolean makePreview = variant == null && images.findFirstByProductIdAndPreviewTrue(p.getId()).isEmpty();
             ProductImage img = new ProductImage(p.getId(), variant != null ? variant.getId() : null,
-                stored.key(), stored.url(), false, order);
+                stored.key(), stored.url(), makePreview, order);
             img.setContentHash(hash);
             images.save(img);
         }
