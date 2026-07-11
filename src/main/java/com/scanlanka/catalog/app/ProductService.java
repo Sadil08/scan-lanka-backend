@@ -163,6 +163,89 @@ public class ProductService {
         cacheEvictor.evictAll();
     }
 
+    public record VariantView(long id, String sku, long priceCents, String signature) {}
+
+    /**
+     * Add one variant (size) to an existing VARIANT product (owner 2026-07-11 — sizes forgotten at
+     * create time can now be added without rebuilding the product). One option value per price-affecting
+     * group; a value that isn't a known option yet is created (e.g. a new "2 x 3" size). The product's
+     * denormalised price range is recomputed.
+     */
+    @Transactional
+    public VariantView addVariant(Long productId, List<String> optionValues, long priceCents, Integer stockQty) {
+        Product p = products.findById(productId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+        if (p.getPriceMode() != PriceMode.VARIANT) throw badRequest("NOT_A_VARIANT_PRODUCT");
+        if (priceCents <= 0) throw badRequest("INVALID_PRICE");
+        List<SpecGroup> priceGroups = groups.findByProductIdOrderByDisplayOrderAsc(productId).stream()
+            .filter(SpecGroup::isPriceAffecting).toList();
+        if (optionValues == null || optionValues.size() != priceGroups.size()) throw badRequest("VARIANT_OPTION_COUNT");
+
+        List<Long> optionIds = new ArrayList<>();
+        for (int i = 0; i < priceGroups.size(); i++) {
+            SpecGroup g = priceGroups.get(i);
+            String value = optionValues.get(i) == null ? "" : optionValues.get(i).trim();
+            if (value.isEmpty()) throw badRequest("EMPTY_OPTION");
+            SpecOption opt = options.findBySpecGroupIdAndValue(g.getId(), value).orElseGet(() ->
+                options.save(new SpecOption(g.getId(), value, options.findBySpecGroupIdOrderByDisplayOrderAsc(g.getId()).size())));
+            optionIds.add(opt.getId());
+        }
+        String signature = variantService.signature(optionIds);
+        if (variants.findByProductIdAndOptionsSignature(productId, signature).isPresent())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "VARIANT_EXISTS");
+
+        ProductVariant v = variants.save(new ProductVariant(productId, generateSku(), priceCents, stockQty, signature));
+        recomputePriceRange(p);
+        cacheEvictor.evictAll();
+        return new VariantView(v.getId(), v.getSku(), priceCents, signature);
+    }
+
+    /**
+     * Delete one variant (size) from a VARIANT product. Refused if the size has ever been ordered (its
+     * order history must stay intact — deactivate instead), or if it's the product's last variant.
+     * Spec options left unused by the removal are cleaned up so no dangling, unpickable size remains.
+     */
+    @Transactional
+    public void deleteVariant(Long productId, Long variantId) {
+        Product p = products.findById(productId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+        ProductVariant v = variants.findById(variantId)
+            .filter(x -> x.getProductId().equals(productId))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
+        if (orderItems.existsByVariantId(variantId)) throw new ResponseStatusException(HttpStatus.CONFLICT, "VARIANT_ORDERED");
+        if (variants.findByProductId(productId).size() <= 1) throw badRequest("LAST_VARIANT");
+
+        Set<Long> removedOptionIds = signatureOptionIds(v.getOptionsSignature());
+        variants.delete(v);
+        variants.flush();
+        Set<Long> stillUsed = variants.findByProductId(productId).stream()
+            .flatMap(rv -> signatureOptionIds(rv.getOptionsSignature()).stream())
+            .collect(Collectors.toSet());
+        for (Long optId : removedOptionIds) {
+            if (!stillUsed.contains(optId)) options.deleteById(optId);
+        }
+        recomputePriceRange(p);
+        cacheEvictor.evictAll();
+    }
+
+    private void recomputePriceRange(Product p) {
+        List<Long> prices = variants.findByProductId(p.getId()).stream()
+            .filter(ProductVariant::isActive).map(ProductVariant::getPriceCents).toList();
+        if (!prices.isEmpty()) {
+            long[] range = pricing.priceRange(prices);
+            p.setPriceRange(range[0], range[1]);
+            products.save(p);
+        }
+    }
+
+    private static Set<Long> signatureOptionIds(String signature) {
+        Set<Long> ids = new java.util.HashSet<>();
+        for (String tok : signature.split("-")) {
+            if (!tok.isBlank()) ids.add(Long.parseLong(tok.trim()));
+        }
+        return ids;
+    }
+
     /**
      * Product-level delivery-only update (single-priced products, no variants) — the lorry-pricing
      * overview (08/17, owner 2026-07-07) edits each row without resending the whole product payload.

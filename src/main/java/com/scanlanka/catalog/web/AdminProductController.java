@@ -5,6 +5,7 @@ import com.scanlanka.catalog.app.BulkProductImageService;
 import com.scanlanka.catalog.app.ImageService;
 import com.scanlanka.catalog.app.ProductService;
 import com.scanlanka.catalog.web.dto.ProductRequests.ActiveRequest;
+import com.scanlanka.catalog.web.dto.ProductRequests.AddVariantRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.DeliveryUpdateRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
@@ -91,6 +92,21 @@ public class AdminProductController {
                                                    @Valid @RequestBody DeliveryUpdateRequest req) {
         productService.updateVariantDelivery(variantId, req.delivery());
         return ResponseEntity.ok().build();
+    }
+
+    /** Add a variant (size) to an existing variant product. */
+    @PostMapping("/{id}/variants")
+    public ResponseEntity<ProductService.VariantView> addVariant(@PathVariable Long id,
+                                                                 @Valid @RequestBody AddVariantRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(productService.addVariant(id, req.optionValues(), req.priceCents(), req.stockQty()));
+    }
+
+    /** Delete a variant (size) — refused if it has been ordered or is the last one. */
+    @DeleteMapping("/{id}/variants/{variantId}")
+    public ResponseEntity<Void> deleteVariant(@PathVariable Long id, @PathVariable Long variantId) {
+        productService.deleteVariant(id, variantId);
+        return ResponseEntity.noContent().build();
     }
 
     /** Product-level delivery-only update (single-priced products) — used by the lorry-pricing overview. */

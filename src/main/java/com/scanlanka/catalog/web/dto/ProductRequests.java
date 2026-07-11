@@ -3,6 +3,7 @@ package com.scanlanka.catalog.web.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -46,6 +47,12 @@ public final class ProductRequests {
         @NotEmpty List<@NotBlank String> optionValues,
         @PositiveOrZero long priceCents,
         String sku,
+        Integer stockQty) {}
+
+    /** Add one variant (size) to an existing variant product: option value per price-affecting group. */
+    public record AddVariantRequest(
+        @NotEmpty List<@NotBlank String> optionValues,
+        @Positive long priceCents,
         Integer stockQty) {}
 
     public record CreateProductRequest(
