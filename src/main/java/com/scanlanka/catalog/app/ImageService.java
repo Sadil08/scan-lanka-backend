@@ -108,7 +108,7 @@ public class ImageService {
         images.findFirstByProductIdAndPreviewTrue(productId).ifPresent(prev -> {
             if (!prev.getId().equals(imageId)) {
                 prev.setPreview(false);
-                images.save(prev);
+                images.saveAndFlush(prev);   // clear the old preview first, or ux_image_preview 500s mid-swap
             }
         });
         img.setPreview(true);
