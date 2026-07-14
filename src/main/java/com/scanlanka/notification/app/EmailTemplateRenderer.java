@@ -136,7 +136,7 @@ public class EmailTemplateRenderer {
             """.formatted(
             BrandAssets.PRIMARY_DARK,
             BrandAssets.PRIMARY_LIGHT, BrandAssets.PRIMARY_LIGHT, BrandAssets.PRIMARY,
-            BrandAssets.LOGO_DATA_URI, BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(BrandAssets.COMPANY_NAME),
+            BrandAssets.LOGO_CID_URI, BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(BrandAssets.COMPANY_NAME),
             BrandAssets.INK, BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(heading),
             innerHtml,
             BrandAssets.PRIMARY_LIGHT, BrandAssets.MUTED,

@@ -9,10 +9,10 @@ import java.util.Base64;
  * truth so the receipt PDF and every transactional email use the same logo and brand blue as the
  * storefront ({@code frontend/src/styles/tokens.css} --primary/--primary-dark/--primary-light).
  *
- * <p>The logo is embedded as a base64 data URI, not linked, so it renders identically in both
- * contexts: the PDF renderer (openhtmltopdf) never fetches external resources, and a data URI is the
- * one image-embedding technique that works across mainstream email clients without adding multipart/
- * CID attachment plumbing to {@link com.scanlanka.notification.app.EmailProvider}.
+ * <p>PDF receipts embed the logo as a base64 data URI (openhtmltopdf does not fetch URLs). HTML
+ * emails use a CID reference ({@link #LOGO_CID_URI}) with the PNG attached inline by
+ * {@link com.scanlanka.notification.app.SmtpEmailProvider} — many clients (e.g. Gmail) strip or hide
+ * {@code data:} images in mail.
  */
 public final class BrandAssets {
 
@@ -29,15 +29,28 @@ public final class BrandAssets {
     public static final String COMPANY_PHONE = "071 781 7447";
     public static final String COMPANY_EMAIL = "scanlankagroup.info@gmail.com";
 
-    public static final String LOGO_DATA_URI = loadLogoDataUri();
+    /** Content-ID for the inline logo MIME part (quoted-string form without angle brackets). */
+    public static final String LOGO_CID = "scanlanka-logo";
 
-    private static String loadLogoDataUri() {
+    /** {@code <img src>} value for HTML emails that attach {@link #LOGO_PNG_BYTES} as inline. */
+    public static final String LOGO_CID_URI = "cid:" + LOGO_CID;
+
+    public static final byte[] LOGO_PNG_BYTES = loadLogoBytes();
+
+    /** Data URI for PDF/HTML contexts that cannot use MIME CID (receipt PDF). */
+    public static final String LOGO_DATA_URI = toDataUri(LOGO_PNG_BYTES);
+
+    private static byte[] loadLogoBytes() {
         try (InputStream in = BrandAssets.class.getResourceAsStream("/branding/logo.png")) {
-            if (in == null) return "";
-            byte[] bytes = in.readAllBytes();
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
+            if (in == null) return new byte[0];
+            return in.readAllBytes();
         } catch (IOException e) {
-            return ""; // a missing/unreadable logo must never break receipt/email rendering
+            return new byte[0]; // missing logo must never break receipt/email rendering
         }
+    }
+
+    private static String toDataUri(byte[] bytes) {
+        if (bytes.length == 0) return "";
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
     }
 }

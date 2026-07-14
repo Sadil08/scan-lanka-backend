@@ -44,10 +44,51 @@ class SmtpEmailProviderTest {
         assertThat(sent.getFrom()[0].toString()).contains("no-reply@scanlanka.com");
         assertThat(sent.getAllRecipients()[0].toString()).isEqualTo("buyer@example.lk");
         assertThat(sent.getSubject()).isEqualTo("Your Scan Lanka receipt");
-        // getContentType() reads the MIME header, which is only finalized by saveChanges() during a real
-        // transport send (mocked here); the DataHandler carries the true content type set by setText(.., true).
-        assertThat(sent.getDataHandler().getContentType()).contains("text/html");
-        assertThat(sent.getContent().toString()).contains("<p>Thanks for your order</p>");
+        // Multipart/related + inline CID logo (Gmail etc. block data: images).
+        assertThat(sent.getContent()).isInstanceOf(jakarta.mail.Multipart.class);
+        assertThat(htmlBody(sent)).contains("<p>Thanks for your order</p>");
+        assertThat(hasInlineLogo((jakarta.mail.Multipart) sent.getContent())).isTrue();
+        assertThat(com.scanlanka.shared.branding.BrandAssets.LOGO_PNG_BYTES.length).isGreaterThan(0);
+    }
+
+    private static boolean hasInlineLogo(jakarta.mail.Multipart mp) throws Exception {
+        for (int i = 0; i < mp.getCount(); i++) {
+            var part = mp.getBodyPart(i);
+            String[] cids = part.getHeader("Content-ID");
+            if (cids != null) {
+                for (String cid : cids) {
+                    if (cid != null && cid.contains("scanlanka-logo")) return true;
+                }
+            }
+            Object nested = part.getContent();
+            if (nested instanceof jakarta.mail.Multipart inner && hasInlineLogo(inner)) return true;
+        }
+        return false;
+    }
+
+    /** Pull the text/html part out of a multipart MimeMessage (any nesting). */
+    private static String htmlBody(MimeMessage message) throws Exception {
+        return findHtml(message.getContent());
+    }
+
+    private static String findHtml(Object content) throws Exception {
+        if (content instanceof String s) return s;
+        if (content instanceof jakarta.mail.Multipart mp) {
+            for (int i = 0; i < mp.getCount(); i++) {
+                var part = mp.getBodyPart(i);
+                String ct = part.getContentType();
+                if (ct != null && ct.toLowerCase().startsWith("text/html")) {
+                    Object body = part.getContent();
+                    return body instanceof String str ? str : String.valueOf(body);
+                }
+                Object nested = part.getContent();
+                if (nested instanceof jakarta.mail.Multipart || nested instanceof String) {
+                    String found = findHtml(nested);
+                    if (found.contains("<")) return found;
+                }
+            }
+        }
+        return String.valueOf(content);
     }
 
     @Test

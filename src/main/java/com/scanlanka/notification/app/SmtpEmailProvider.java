@@ -1,10 +1,12 @@
 package com.scanlanka.notification.app;
 
+import com.scanlanka.shared.branding.BrandAssets;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -16,8 +18,9 @@ import org.springframework.stereotype.Component;
  * ({@link EmailTemplateRenderer}). Marked {@link Primary} so it wins over the dev
  * {@link LoggingEmailProvider} whenever it is present; otherwise the logging provider is used.
  *
- * <p>Send failures throw, so {@link NotificationWorker}'s retry/backoff/dead-letter logic applies —
- * a provider outage never blocks the request that enqueued the message.
+ * <p>The brand logo is attached as an inline CID part so clients that block {@code data:} images
+ * (Gmail, etc.) still show the letterhead. Send failures throw, so {@link NotificationWorker}'s
+ * retry/backoff/dead-letter logic applies.
  */
 @Component
 @Primary
@@ -37,11 +40,21 @@ public class SmtpEmailProvider implements EmailProvider {
     public void send(String to, String subject, String body) {
         try {
             MimeMessage message = sender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            // multipart=true so we can attach the logo as an inline CID image
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, true); // HTML body
+            byte[] logo = BrandAssets.LOGO_PNG_BYTES;
+            if (logo.length > 0) {
+                helper.addInline(BrandAssets.LOGO_CID, new ByteArrayResource(logo) {
+                    @Override
+                    public String getFilename() {
+                        return "logo.png";
+                    }
+                }, "image/png");
+            }
             sender.send(message);
         } catch (MessagingException e) {
             // Wrap the checked exception so the worker's catch(Exception) retry path handles it.

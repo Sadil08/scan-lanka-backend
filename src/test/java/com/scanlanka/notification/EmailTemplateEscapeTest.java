@@ -19,6 +19,7 @@ class EmailTemplateEscapeTest {
         assertThat(email.body()).doesNotContain("<script>");
         assertThat(email.body()).contains("&lt;script&gt;");
         assertThat(email.subject()).doesNotContain("\r").doesNotContain("\n");
+        assertThat(email.body()).contains("cid:scanlanka-logo");
     }
 
     @Test
