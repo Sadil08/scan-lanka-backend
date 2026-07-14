@@ -69,7 +69,7 @@ public class EmailTemplateRenderer {
             <p><strong>New order %s</strong></p>
             <p>Customer: %s (%s)<br/>Fulfilment: %s<br/>Payment: %s / %s<br/>Delivery: %s</p>
             <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%%;">
-            <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Spec</th><th>Qty</th><th>Total</th></tr>
+            <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Handling</th><th>Qty</th><th>Total</th></tr>
             %s</table>
             <p>Online total: <strong>%s</strong>%s</p>
             """.formatted(

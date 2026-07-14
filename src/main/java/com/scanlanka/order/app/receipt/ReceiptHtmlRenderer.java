@@ -62,7 +62,7 @@ public class ReceiptHtmlRenderer {
               %s
               <p><strong>Fulfilment:</strong> %s · <strong>Payment:</strong> %s (%s)</p>
               %s
-              <table><thead><tr><th>SKU</th><th>Item</th><th>Spec</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
+              <table><thead><tr><th>SKU</th><th>Item</th><th>Handling</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
               <tbody>%s</tbody></table>
               <table class="totals">
                 <tr><td>Subtotal</td><td>%s</td></tr>

@@ -20,10 +20,13 @@ public class ProductLookupService {
 
     private final ProductRepository products;
     private final ProductVariantRepository variants;
+    private final VariantLabelResolver labels;
 
-    public ProductLookupService(ProductRepository products, ProductVariantRepository variants) {
+    public ProductLookupService(ProductRepository products, ProductVariantRepository variants,
+                                VariantLabelResolver labels) {
         this.products = products;
         this.variants = variants;
+        this.labels = labels;
     }
 
     /** Resolved line pricing/stock; stock == null means unlimited. */
@@ -54,7 +57,8 @@ public class ProductLookupService {
                 .filter(x -> x.getProductId().equals(p.getId()) && x.isActive())
                 .orElse(null);
             if (v == null) return java.util.Optional.empty();
-            return java.util.Optional.of(new OrderLine(productId, variantId, v.getSku(), p.getName(),
+            String name = labels.nameWithSize(p.getName(), v.getOptionsSignature());
+            return java.util.Optional.of(new OrderLine(productId, variantId, v.getSku(), name,
                 handling, v.getPriceCents(), v.getStockQty(),
                 firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier()),
                 firstNonNull(v.getLorryColomboCents(), p.getLorryColomboCents()),
@@ -96,7 +100,8 @@ public class ProductLookupService {
                 .filter(x -> x.getProductId().equals(p.getId()) && x.isActive())
                 .orElse(null);
             if (v == null) return Optional.empty();
-            return Optional.of(new LinePricing(p.getName(), v.getPriceCents(), v.getStockQty()));
+            String name = labels.nameWithSize(p.getName(), v.getOptionsSignature());
+            return Optional.of(new LinePricing(name, v.getPriceCents(), v.getStockQty()));
         }
         return Optional.of(new LinePricing(p.getName(), p.getSinglePriceCents(), p.getStockQty()));
     }

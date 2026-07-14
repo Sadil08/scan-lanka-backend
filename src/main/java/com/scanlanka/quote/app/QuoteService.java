@@ -94,20 +94,32 @@ public class QuoteService {
         Instant expires = Instant.now().plus(14, ChronoUnit.DAYS);
         QuoteRequest q = quotes.save(new QuoteRequest(name, email, phone, countryCode, country, message,
             tokens.hash(token), in.customerId(), expires));
+        StringBuilder itemRows = new StringBuilder();
         for (ItemInput line : in.items()) {
             if (line.quantity() < 1) throw badRequest("INVALID_QTY");
             if (line.productId() == null && (line.name() == null || line.name().isBlank())) {
                 throw badRequest("INVALID_ITEM");
             }
             String itemName = resolveName(line);
+            String note = TextSanitizer.optional(line.note(), 300);
             items.save(new QuoteItem(q.getId(), line.productId(), line.variantId(),
-                itemName, line.quantity(), TextSanitizer.optional(line.note(), 300)));
+                itemName, line.quantity(), note));
+            itemRows.append("<tr><td>").append(HtmlEscaper.escape(itemName))
+                .append("</td><td>").append(line.quantity())
+                .append("</td><td>").append(HtmlEscaper.escape(note == null ? "" : note))
+                .append("</td></tr>");
         }
         String link = frontendBase + "/quotes/" + token;
+        String phoneDisplay = (countryCode != null && !phone.startsWith("+")) ? countryCode + " " + phone : phone;
         notifications.enqueue("QUOTE_REQUEST", adminEmail,
             HtmlEscaper.subject("New quote request from " + name),
-            "<p>" + HtmlEscaper.escape(name) + " — " + HtmlEscaper.escape(email) + "</p>"
-                + "<p><a href=\"" + HtmlEscaper.escape(link) + "\">View thread</a></p>",
+            "<p><strong>" + HtmlEscaper.escape(name) + "</strong> — " + HtmlEscaper.escape(email)
+                + " — " + HtmlEscaper.escape(phoneDisplay)
+                + (country != null ? " — " + HtmlEscaper.escape(country) : "") + "</p>"
+                + (message != null ? "<p>" + HtmlEscaper.escape(message) + "</p>" : "")
+                + "<table border=\"1\" cellpadding=\"6\" style=\"border-collapse:collapse;width:100%;\">"
+                + "<tr><th>Product</th><th>Qty</th><th>Note</th></tr>" + itemRows + "</table>"
+                + "<p><a href=\"" + HtmlEscaper.escape(link) + "\">View / respond to this quote</a></p>",
             "quote:" + q.getId());
         return new SubmitResult(q.getId(), token);
     }
