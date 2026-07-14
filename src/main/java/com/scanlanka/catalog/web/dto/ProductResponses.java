@@ -35,6 +35,7 @@ public final class ProductResponses {
 
     public record ProductDetailDTO(
         long id, String slug, String name, String description, String details,
+        String category, Long parentProductId,
         String priceMode, Long singlePriceCents, Long priceMinCents, Long priceMaxCents,
         String availability,
         List<ImageDTO> imageUrls, List<SpecGroupDTO> specGroups, List<VariantDTO> variants,

@@ -147,6 +147,7 @@ public class ProductQueryService {
             });
 
         return new ProductDetailDTO(p.getId(), p.getSlug(), p.getName(), p.getDescription(), p.getDetails(),
+            p.getCategory(), p.getParentProductId(),
             p.getPriceMode().name(), p.getSinglePriceCents(), p.getPriceRangeMinCents(), p.getPriceRangeMaxCents(),
             avail, imageUrls, specGroups, variantDtos,
             p.isWhatsappOnly(), tierName(p.getBoardSizeTier()), couriable);
