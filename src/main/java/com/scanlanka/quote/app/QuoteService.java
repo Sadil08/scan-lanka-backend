@@ -70,14 +70,14 @@ public class QuoteService {
     }
 
     public record ItemInput(Long productId, Long variantId, int quantity, String note, String name) {}
-    public record SubmitInput(String requesterName, String email, String phone, String country,
+    public record SubmitInput(String requesterName, String email, String phone, String countryCode, String country,
                               String message, List<ItemInput> items, Long customerId) {}
     public record SubmitResult(long id, String accessToken) {}
     public record ItemView(long id, String name, int quantity, String note) {}
     public record MessageView(long id, String sender, String body, Long quotedPriceCents, Instant at) {}
-    public record QuoteView(long id, String requesterName, String email, String phone, String country,
-                            String status, Long quotedTotalCents, Instant expiresAt, Instant createdAt,
-                            List<ItemView> items, List<MessageView> thread) {}
+    public record QuoteView(long id, String requesterName, String email, String phone, String countryCode,
+                            String country, String status, Long quotedTotalCents, Instant expiresAt,
+                            Instant createdAt, List<ItemView> items, List<MessageView> thread) {}
 
     @Transactional
     public SubmitResult submit(SubmitInput in) {
@@ -87,11 +87,12 @@ public class QuoteService {
         String name = TextSanitizer.plain(in.requesterName(), 160, "NAME");
         String email = TextSanitizer.email(in.email());
         String phone = TextSanitizer.plain(in.phone(), 32, "PHONE");
+        String countryCode = TextSanitizer.optional(in.countryCode(), 6);
         String country = TextSanitizer.optional(in.country(), 2);
         String message = TextSanitizer.optional(in.message(), 4000);
         String token = tokens.issue();
         Instant expires = Instant.now().plus(14, ChronoUnit.DAYS);
-        QuoteRequest q = quotes.save(new QuoteRequest(name, email, phone, country, message,
+        QuoteRequest q = quotes.save(new QuoteRequest(name, email, phone, countryCode, country, message,
             tokens.hash(token), in.customerId(), expires));
         for (ItemInput line : in.items()) {
             if (line.quantity() < 1) throw badRequest("INVALID_QTY");
@@ -131,11 +132,19 @@ public class QuoteService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QuoteView> adminList(String status, Pageable pageable) {
-        Page<QuoteRequest> page = (status == null || status.isBlank())
-            ? quotes.findAllByOrderByCreatedAtDesc(pageable)
-            : quotes.findByStatusOrderByCreatedAtDesc(status.toUpperCase(), pageable);
-        return page.map(this::toView);
+    public Page<QuoteView> adminList(String status, String scope, Pageable pageable) {
+        String normalizedStatus = (status == null || status.isBlank()) ? null : status.toUpperCase();
+        String normalizedScope = (scope == null || scope.isBlank()) ? null : scope.toUpperCase();
+        return quotes.search(normalizedStatus, normalizedScope, pageable).map(this::toView);
+    }
+
+    /** Admin corrects a request's country when geo-detection guessed wrong (11 FR-QUOTE-9). */
+    @Transactional
+    public void adminUpdateCountry(long id, String country, Long adminId) {
+        QuoteRequest q = load(id);
+        q.setCountry(TextSanitizer.optional(country, 2));
+        quotes.save(q);
+        audit.log(adminId, "QUOTE_COUNTRY_UPDATE", "quote_request", String.valueOf(id), null, q.getCountry());
     }
 
     @Transactional(readOnly = true)
@@ -270,8 +279,9 @@ public class QuoteService {
             .toList();
         List<MessageView> thread = messages.findByQuoteIdOrderByCreatedAtAsc(q.getId()).stream()
             .map(this::toMsg).toList();
-        return new QuoteView(q.getId(), q.getRequesterName(), q.getEmail(), q.getPhone(), q.getCountry(),
-            q.getStatus(), q.getQuotedTotalCents(), q.getExpiresAt(), q.getCreatedAt(), itemViews, thread);
+        return new QuoteView(q.getId(), q.getRequesterName(), q.getEmail(), q.getPhone(), q.getCountryCode(),
+            q.getCountry(), q.getStatus(), q.getQuotedTotalCents(), q.getExpiresAt(), q.getCreatedAt(),
+            itemViews, thread);
     }
 
     private MessageView toMsg(QuoteMessage m) {

@@ -44,6 +44,7 @@ public class QuoteController {
         @NotBlank String requesterName,
         @Email @NotBlank String email,
         @NotBlank String phone,
+        String countryCode,
         String country,
         String message,
         @NotEmpty List<ItemBody> items) {}
@@ -61,7 +62,7 @@ public class QuoteController {
             .map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity(), i.note(), i.name()))
             .toList();
         return quotes.submit(new SubmitInput(body.requesterName(), body.email(), body.phone(),
-            body.country(), body.message(), items, customerId));
+            body.countryCode(), body.country(), body.message(), items, customerId));
     }
 
     @GetMapping("/{token}")

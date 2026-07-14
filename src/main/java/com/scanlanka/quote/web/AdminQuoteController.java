@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,12 +26,14 @@ public class AdminQuoteController {
 
     public record AdminMessageBody(String body, Long quotedPriceCents) {}
     public record ConvertResult(String orderNumber) {}
+    public record CountryBody(String country) {}
 
     @GetMapping
     public Page<QuoteService.QuoteView> list(@RequestParam(required = false) String status,
+                                             @RequestParam(required = false) String scope,
                                              @RequestParam(defaultValue = "0") int page,
                                              @RequestParam(defaultValue = "25") int size) {
-        return quotes.adminList(status, PageRequest.of(Math.max(0, page), Math.min(size, 100)));
+        return quotes.adminList(status, scope, PageRequest.of(Math.max(0, page), Math.min(size, 100)));
     }
 
     @GetMapping("/{id}")
@@ -52,5 +55,11 @@ public class AdminQuoteController {
     @PostMapping("/{id}/convert")
     public ConvertResult convert(@PathVariable long id, @AuthenticationPrincipal AuthPrincipal principal) {
         return new ConvertResult(quotes.convertToOrder(id, principal.userId()));
+    }
+
+    @PatchMapping("/{id}/country")
+    public void updateCountry(@PathVariable long id, @RequestBody CountryBody body,
+                              @AuthenticationPrincipal AuthPrincipal principal) {
+        quotes.adminUpdateCountry(id, body.country(), principal.userId());
     }
 }

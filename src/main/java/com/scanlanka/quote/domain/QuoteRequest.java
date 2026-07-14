@@ -26,6 +26,8 @@ public class QuoteRequest {
     private String email;
     @Column(nullable = false)
     private String phone;
+    @Column(name = "country_code")
+    private String countryCode;
     private String country;
     private String message;
     @Column(nullable = false)
@@ -47,11 +49,12 @@ public class QuoteRequest {
 
     protected QuoteRequest() {}
 
-    public QuoteRequest(String requesterName, String email, String phone, String country, String message,
-                        String accessTokenHash, Long customerId, Instant expiresAt) {
+    public QuoteRequest(String requesterName, String email, String phone, String countryCode, String country,
+                        String message, String accessTokenHash, Long customerId, Instant expiresAt) {
         this.requesterName = requesterName;
         this.email = email;
         this.phone = phone;
+        this.countryCode = countryCode;
         this.country = country;
         this.message = message;
         this.accessTokenHash = accessTokenHash;
@@ -63,6 +66,7 @@ public class QuoteRequest {
     public String getRequesterName() { return requesterName; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
+    public String getCountryCode() { return countryCode; }
     public String getCountry() { return country; }
     public String getMessage() { return message; }
     public String getStatus() { return status; }
@@ -76,6 +80,8 @@ public class QuoteRequest {
     public void setStatus(Status status) { this.status = status.name(); }
     public void setQuotedTotalCents(Long cents) { this.quotedTotalCents = cents; }
     public void setConvertedOrderId(Long orderId) { this.convertedOrderId = orderId; }
+    /** Admin correction when geo-detection guessed the wrong country (11 FR-QUOTE-9). */
+    public void setCountry(String country) { this.country = country; }
 
     public boolean isExpired() {
         return expiresAt != null && Instant.now().isAfter(expiresAt);

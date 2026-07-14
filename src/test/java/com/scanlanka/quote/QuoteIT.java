@@ -86,6 +86,43 @@ class QuoteIT extends AbstractIntegrationTest {
         mvc.perform(get("/api/admin/quotes")).andExpect(status().is4xxClientError());
     }
 
+    @Test
+    void countryCodeScopeFilterAndAdminCorrection() throws Exception {
+        MvcResult submit = mvc.perform(post("/api/quotes").contentType(MediaType.APPLICATION_JSON)
+                .header("X-Captcha-Token", "test-captcha-bypass")
+                .content("{\"requesterName\":\"Foreign Buyer\",\"email\":\"buyer@overseas.com\","
+                    + "\"countryCode\":\"+44\",\"phone\":\"+447700900123\",\"country\":\"GB\","
+                    + "\"items\":[{\"name\":\"Sample board\",\"quantity\":1}]}"))
+            .andExpect(status().isOk()).andReturn();
+        JsonNode body = objectMapper.readTree(submit.getResponse().getContentAsString());
+        long id = body.get("id").asLong();
+
+        Cookie admin = adminCookie("quote-scope-admin@scanlanka.lk");
+
+        mvc.perform(get("/api/admin/quotes/" + id).cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.countryCode").value("+44"))
+            .andExpect(jsonPath("$.country").value("GB"));
+
+        mvc.perform(get("/api/admin/quotes").param("scope", "INTL").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.id == " + id + ")]").exists());
+
+        mvc.perform(get("/api/admin/quotes").param("scope", "LOCAL").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.id == " + id + ")]").doesNotExist());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .patch("/api/admin/quotes/" + id + "/country").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"country\":\"LK\"}"))
+            .andExpect(status().isOk());
+
+        mvc.perform(get("/api/admin/quotes").param("scope", "LOCAL").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.id == " + id + ")]").exists());
+    }
+
     private Cookie adminCookie(String email) throws Exception {
         AuthTestSupport.seedAdmin(users, encoder, email);
         return AuthTestSupport.loginAdmin(mvc, email, "JBSWY3DPEHPK3PXP");
