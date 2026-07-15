@@ -10,9 +10,9 @@ import java.util.Base64;
  * storefront ({@code frontend/src/styles/tokens.css} --primary/--primary-dark/--primary-light).
  *
  * <p>PDF receipts embed the logo as a base64 data URI (openhtmltopdf does not fetch URLs). HTML
- * emails use a CID reference ({@link #LOGO_CID_URI}) with the PNG attached inline by
- * {@link com.scanlanka.notification.app.SmtpEmailProvider} — many clients (e.g. Gmail) strip or hide
- * {@code data:} images in mail.
+ * emails use the storefront's public {@code /logo.png} URL (see {@link
+ * com.scanlanka.notification.app.EmailTemplateRenderer}) — Gmail strips {@code data:} images and
+ * often fails to resolve CID parts, especially in Spam.
  */
 public final class BrandAssets {
 
@@ -29,10 +29,12 @@ public final class BrandAssets {
     public static final String COMPANY_PHONE = "071 781 7447";
     public static final String COMPANY_EMAIL = "scanlankagroup.info@gmail.com";
 
-    /** Content-ID for the inline logo MIME part (quoted-string form without angle brackets). */
+    /** @deprecated Prefer storefront HTTPS {@code /logo.png} in email HTML. Kept for any legacy CID use. */
+    @Deprecated
     public static final String LOGO_CID = "scanlanka-logo";
 
-    /** {@code <img src>} value for HTML emails that attach {@link #LOGO_PNG_BYTES} as inline. */
+    /** @deprecated Prefer storefront HTTPS {@code /logo.png} in email HTML. */
+    @Deprecated
     public static final String LOGO_CID_URI = "cid:" + LOGO_CID;
 
     public static final byte[] LOGO_PNG_BYTES = loadLogoBytes();

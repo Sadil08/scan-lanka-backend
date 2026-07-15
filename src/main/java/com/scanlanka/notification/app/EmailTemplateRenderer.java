@@ -6,17 +6,30 @@ import com.scanlanka.shared.text.HtmlEscaper;
 
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
  * Escaped HTML email bodies (10 FR-NOTIFY-1/2/3/6), wrapped in a shared branded letterhead
  * ({@link #envelope}) - logo + brand blue - so every transactional email matches the storefront and
  * the receipt PDF ({@link com.scanlanka.order.app.receipt.ReceiptHtmlRenderer}).
+ *
+ * <p>The letterhead logo is a public HTTPS URL on the storefront ({@code /logo.png}). Gmail and other
+ * clients often break or strip CID / {@code data:} images (especially in Spam); a stable remote URL
+ * is what they display once images are allowed.
  */
 @Component
 public class EmailTemplateRenderer {
 
     public record RenderedEmail(String subject, String body) {}
+
+    private final String logoUrl;
+
+    public EmailTemplateRenderer(@Value("${app.frontend-base-url}") String frontendBaseUrl) {
+        String base = frontendBaseUrl == null ? "" : frontendBaseUrl.trim();
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        this.logoUrl = (base.isEmpty() ? "http://localhost:3000" : base) + "/logo.png";
+    }
 
     public RenderedEmail orderReceipt(ReceiptModel m, String lookupUrl) {
         String subject = HtmlEscaper.subject("Your Scan Lanka receipt — " + m.orderNumber());
@@ -111,7 +124,7 @@ public class EmailTemplateRenderer {
      * Shared branded letterhead for every email: logo + company name in the header, a blue accent
      * border, the caller's content, and a contact-details footer - same look as the receipt PDF.
      */
-    private static String envelope(String heading, String innerHtml) {
+    private String envelope(String heading, String innerHtml) {
         return """
             <!DOCTYPE html><html><head><meta charset="UTF-8"/>
             <style>.code { font-size: 18px; letter-spacing: 2px; color: %s; font-weight: bold; }</style>
@@ -120,7 +133,7 @@ public class EmailTemplateRenderer {
               <div style="max-width:560px;margin:0 auto;padding:24px 0;">
                 <div style="background:#ffffff;border:1px solid %s;border-radius:8px;overflow:hidden;">
                   <div style="display:flex;align-items:center;gap:12px;padding:20px 24px;border-bottom:3px solid %s;">
-                    <img src="%s" alt="Scan Lanka" style="height:36px;"/>
+                    <img src="%s" alt="Scan Lanka" width="120" height="36" style="height:36px;width:auto;border:0;display:block;"/>
                     <strong style="color:%s;font-size:15px;">%s</strong>
                   </div>
                   <div style="padding:20px 24px 4px;font-size:13px;color:%s;line-height:1.6;">
@@ -136,7 +149,7 @@ public class EmailTemplateRenderer {
             """.formatted(
             BrandAssets.PRIMARY_DARK,
             BrandAssets.PRIMARY_LIGHT, BrandAssets.PRIMARY_LIGHT, BrandAssets.PRIMARY,
-            BrandAssets.LOGO_CID_URI, BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(BrandAssets.COMPANY_NAME),
+            HtmlEscaper.escape(logoUrl), BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(BrandAssets.COMPANY_NAME),
             BrandAssets.INK, BrandAssets.PRIMARY_DARK, HtmlEscaper.escape(heading),
             innerHtml,
             BrandAssets.PRIMARY_LIGHT, BrandAssets.MUTED,

@@ -10,7 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EmailTemplateEscapeTest {
 
-    private final EmailTemplateRenderer templates = new EmailTemplateRenderer();
+    private final EmailTemplateRenderer templates =
+        new EmailTemplateRenderer("https://scan-lanka-frontend-gold.vercel.app");
 
     @Test
     void scriptTagsAreEscapedInReceipt() {
@@ -19,7 +20,7 @@ class EmailTemplateEscapeTest {
         assertThat(email.body()).doesNotContain("<script>");
         assertThat(email.body()).contains("&lt;script&gt;");
         assertThat(email.subject()).doesNotContain("\r").doesNotContain("\n");
-        assertThat(email.body()).contains("cid:scanlanka-logo");
+        assertThat(email.body()).contains("https://scan-lanka-frontend-gold.vercel.app/logo.png");
     }
 
     @Test
