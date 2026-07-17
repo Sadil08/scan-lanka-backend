@@ -109,4 +109,14 @@ public class ProductLookupService {
         }
         return Optional.of(new LinePricing(p.getName(), p.getSinglePriceCents(), p.getStockQty()));
     }
+
+    /**
+     * The display name of any existing product by id, ignoring active/archived state and variant selection.
+     * Used for loose references (e.g. quote lines) where a product may be named without a priced order line —
+     * a variant-priced product quoted without a specific size still deserves its product name. Empty only when
+     * no such product row exists.
+     */
+    public Optional<String> productName(Long productId) {
+        return products.findById(productId).map(Product::getName);
+    }
 }

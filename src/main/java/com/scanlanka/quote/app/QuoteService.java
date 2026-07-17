@@ -100,9 +100,13 @@ public class QuoteService {
             if (line.productId() == null && (line.name() == null || line.name().isBlank())) {
                 throw badRequest("INVALID_ITEM");
             }
-            String itemName = resolveName(line);
+            // Resolve the line: a referenced product that resolves (even just to its name — a variant-priced
+            // product quoted without a specific size still names the line) keeps its productId; a productId
+            // pointing at no existing product is dropped to a free-text line so the FK never violates.
+            ResolvedLine resolved = resolveLine(line);
+            String itemName = resolved.name();
             String note = TextSanitizer.optional(line.note(), 300);
-            items.save(new QuoteItem(q.getId(), line.productId(), line.variantId(),
+            items.save(new QuoteItem(q.getId(), resolved.productId(), resolved.variantId(),
                 itemName, line.quantity(), note));
             itemRows.append("<tr><td>").append(HtmlEscaper.escape(itemName))
                 .append("</td><td>").append(line.quantity())
@@ -254,17 +258,33 @@ public class QuoteService {
         return order.getOrderNumber();
     }
 
-    private String resolveName(ItemInput line) {
-        if (line.productId() != null) {
-            return catalog.resolveOrderLine(line.productId(), line.variantId())
-                .map(OrderLine::name)
-                .orElseGet(() -> fallbackName(line));
-        }
-        return fallbackName(line);
-    }
+    /** A quote line's persisted product reference + display name after resolution. */
+    private record ResolvedLine(Long productId, Long variantId, String name) {}
 
-    private String fallbackName(ItemInput line) {
-        return TextSanitizer.plain(line.name(), 200, "ITEM");
+    /**
+     * Name a quote line and decide what product reference to persist:
+     * <ul>
+     *   <li>Resolves to a full order line (active, priced) → keep productId/variantId, use that name.
+     *   <li>ProductId exists but no order line (e.g. a variant-priced product quoted without a size) →
+     *       keep the productId, name it by the product's name (never fail a real product).
+     *   <li>ProductId points at no existing product → drop it to a free-text line (needs a name, else
+     *       INVALID_ITEM) so the quote_item FK can never violate.
+     *   <li>No productId → free-text line named by the supplied name.
+     * </ul>
+     */
+    private ResolvedLine resolveLine(ItemInput line) {
+        if (line.productId() != null) {
+            var orderLine = catalog.resolveOrderLine(line.productId(), line.variantId());
+            if (orderLine.isPresent()) {
+                return new ResolvedLine(line.productId(), line.variantId(), orderLine.get().name());
+            }
+            var productName = catalog.productName(line.productId());
+            if (productName.isPresent()) {
+                return new ResolvedLine(line.productId(), line.variantId(), productName.get());
+            }
+        }
+        // Free-text line (no productId, or a productId with no matching product): a name is required.
+        return new ResolvedLine(null, null, TextSanitizer.plain(line.name(), 200, "ITEM"));
     }
 
     private QuoteRequest byToken(String token) {
