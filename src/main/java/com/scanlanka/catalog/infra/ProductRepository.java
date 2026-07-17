@@ -26,13 +26,19 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdForUpdate(@Param("id") Long id);
 
-    @Query("SELECT DISTINCT p.category FROM Product p WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL ORDER BY p.category")
+    // Categories surface in the owner's sheet order: a category sorts by its first-listed
+    // (best-selling) product's display_order (V46), alphabetical as tie-break.
+    @Query("""
+        SELECT p.category FROM Product p
+        WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL
+        GROUP BY p.category ORDER BY MIN(p.displayOrder), p.category
+        """)
     List<String> findDistinctVisibleCategories();
 
     @Query("""
-        SELECT p.category, COUNT(p) FROM Product p
+        SELECT p.category, COUNT(p), MAX(p.categoryGroup) FROM Product p
         WHERE p.active = true AND p.archived = false AND p.category IS NOT NULL AND TRIM(p.category) <> ''
-        GROUP BY p.category ORDER BY p.category
+        GROUP BY p.category ORDER BY MIN(p.displayOrder), p.category
         """)
     List<Object[]> countVisibleProductsByCategory();
 

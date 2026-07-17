@@ -10,7 +10,6 @@ import com.scanlanka.catalog.infra.ProductRepository;
 import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
-import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.LorryZone;
 import com.scanlanka.checkout.domain.PostalZone;
@@ -71,9 +70,8 @@ class AdminConfigIT extends AbstractIntegrationTest {
         long snapshot = orders.findByOrderNumber(orderNumber).orElseThrow().getCourierEstimateCents();
         assertThat(snapshot).isEqualTo(estimateBefore);
 
-        CourierRateCard r = courierRates.findById(
-            new CourierRateCardId(CourierZone.OUTSTATION, BoardSizeTier.BETWEEN_2FT_6FT)).orElseThrow();
-        r.update(r.getFlatCents() + 50000);
+        CourierRateCard r = courierRates.findById(CourierZone.OUTSTATION).orElseThrow();
+        r.update(r.getFirstKgCents() + 50000, r.getAddlKgCents(), r.getHandlingOver2ftCents());
         courierRates.save(r);
 
         assertThat(quoteCourierEstimate(checkout)).isGreaterThan(estimateBefore);

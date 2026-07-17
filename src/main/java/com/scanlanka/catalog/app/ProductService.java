@@ -134,6 +134,7 @@ public class ProductService {
         if (req.parentProductId() != null) p.setParentProductId(req.parentProductId());
         if (req.handlingClass() != null) p.setHandlingClass(HandlingClass.valueOf(req.handlingClass()));
         if (req.active() != null) p.setActive(req.active());
+        if (req.displayOrder() != null) p.setDisplayOrder(req.displayOrder());
         if (p.getPriceMode() == PriceMode.SINGLE) {
             if (req.singlePriceCents() != null) p.setSinglePriceCents(req.singlePriceCents());
             if (req.stockQty() != null) {
@@ -273,6 +274,7 @@ public class ProductService {
         p.setLorryOuterEnabled(!Boolean.FALSE.equals(d.lorryOuterEnabled()));
         p.setLorryOuterWhatsapp(Boolean.TRUE.equals(d.lorryOuterWhatsapp()));
         p.setCourierOuterBlocked(Boolean.TRUE.equals(d.courierOuterBlocked()));
+        p.setCourierEnabled(!Boolean.FALSE.equals(d.courierEnabled()));       // null ⇒ on
         p.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
     }
 
@@ -289,6 +291,7 @@ public class ProductService {
         v.setLorryOuterEnabled(!Boolean.FALSE.equals(d.lorryOuterEnabled()));
         v.setLorryOuterWhatsapp(Boolean.TRUE.equals(d.lorryOuterWhatsapp()));
         v.setCourierOuterBlocked(Boolean.TRUE.equals(d.courierOuterBlocked()));
+        v.setCourierEnabled(!Boolean.FALSE.equals(d.courierEnabled()));
         v.setWhatsappOnly(Boolean.TRUE.equals(d.whatsappOnly()));
     }
 

@@ -45,14 +45,17 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
         mvc.perform(put("/api/admin/delivery-methods/COURIER").cookie(admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"enabled\":true}"))
             .andExpect(status().isOk());
-        // Courier is offered only for OUTER areas (owner 2026-07-03), so exercise an OUTSTATION rate.
-        mvc.perform(put("/api/admin/courier-rate-card/OUTSTATION/BETWEEN_2FT_6FT").cookie(admin)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"flatCents\":160000}"))
+        // Weight-based Domex card (V48): first kg / additional kg / above-2ft handling, per area.
+        mvc.perform(put("/api/admin/courier-rate-card/OUTSTATION").cookie(admin)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"firstKgCents\":60000,\"addlKgCents\":25000,\"handlingOver2ftCents\":160000}"))
             .andExpect(status().isOk());
 
         mvc.perform(get("/api/admin/courier-rate-card").cookie(admin))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[?(@.zone=='OUTSTATION' && @.sizeTier=='BETWEEN_2FT_6FT')].flatCents")
+            .andExpect(jsonPath("$[?(@.zone=='OUTSTATION')].firstKgCents")
+                .value(org.hamcrest.Matchers.hasItem(60000)))
+            .andExpect(jsonPath("$[?(@.zone=='OUTSTATION')].handlingOver2ftCents")
                 .value(org.hamcrest.Matchers.hasItem(160000)));
 
         if (!postalZones.existsById("20000")) {
@@ -64,13 +67,15 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
             List.of(), List.of()));
         Product p = products.findById(id).orElseThrow();
         p.setBoardSizeTier(BoardSizeTier.BETWEEN_2FT_6FT);
+        p.setWeightKg(new java.math.BigDecimal("3"));
         products.save(p);
 
+        // 3 kg above 2 ft: Rs 600 + 2 x Rs 250 + Rs 1,600 handling = Rs 2,700
         mvc.perform(post("/api/checkout/quote").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + id + ",\"quantity\":1}],"
                     + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"20000\"}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.courierEstimateCents").value(160000));
+            .andExpect(jsonPath("$.courierEstimateCents").value(270000));
     }
 
     @Test
@@ -125,8 +130,8 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
 
     @Test
     void deliveryConfigEditRequiresAdmin() throws Exception {
-        mvc.perform(put("/api/admin/courier-rate-card/CITY_LIMITS/BETWEEN_2FT_6FT").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"flatCents\":1}"))
+        mvc.perform(put("/api/admin/courier-rate-card/CITY_LIMITS").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"firstKgCents\":1,\"addlKgCents\":1,\"handlingOver2ftCents\":1}"))
             .andExpect(status().isForbidden());
     }
 

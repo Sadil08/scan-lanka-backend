@@ -39,11 +39,12 @@ public class ProductLookupService {
      */
     public record OrderLine(Long productId, Long variantId, String sku, String name,
                             String handlingClass, long unitPriceCents, Integer stock,
-                            BoardSizeTier boardSizeTier,
+                            BoardSizeTier boardSizeTier, java.math.BigDecimal weightKg,
                             Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
                             Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
                             boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,
-                            boolean lorryOuterWhatsapp, boolean courierOuterBlocked, boolean whatsappOnly) {}
+                            boolean lorryOuterWhatsapp, boolean courierOuterBlocked,
+                            boolean courierEnabled, boolean whatsappOnly) {}
 
     public java.util.Optional<OrderLine> resolveOrderLine(Long productId, Long variantId) {
         Product p = products.findById(productId)
@@ -61,6 +62,7 @@ public class ProductLookupService {
             return java.util.Optional.of(new OrderLine(productId, variantId, v.getSku(), name,
                 handling, v.getPriceCents(), v.getStockQty(),
                 firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier()),
+                firstNonNull(v.getWeightKg(), p.getWeightKg()),
                 firstNonNull(v.getLorryColomboCents(), p.getLorryColomboCents()),
                 firstNonNull(v.getLorrySuburbCents(), p.getLorrySuburbCents()),
                 firstNonNull(v.getLorryOuterCents(), p.getLorryOuterCents()),
@@ -73,14 +75,16 @@ public class ProductLookupService {
                 v.isLorryOuterEnabled() && p.isLorryOuterEnabled(),
                 v.isLorryOuterWhatsapp() || p.isLorryOuterWhatsapp(),
                 v.isCourierOuterBlocked() || p.isCourierOuterBlocked(),
+                v.isCourierEnabled() && p.isCourierEnabled(),
                 v.isWhatsappOnly() || p.isWhatsappOnly()));
         }
         return java.util.Optional.of(new OrderLine(productId, null, p.getSku(), p.getName(),
             handling, p.getSinglePriceCents(), p.getStockQty(),
-            p.getBoardSizeTier(), p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
+            p.getBoardSizeTier(), p.getWeightKg(),
+            p.getLorryColomboCents(), p.getLorrySuburbCents(), p.getLorryOuterCents(),
             p.getLorryColomboGateCents(), p.getLorrySuburbGateCents(), p.getLorryOuterGateCents(),
             p.isLorryColomboEnabled(), p.isLorrySuburbEnabled(), p.isLorryOuterEnabled(),
-            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isWhatsappOnly()));
+            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isCourierEnabled(), p.isWhatsappOnly()));
     }
 
     private static <T> T firstNonNull(T a, T b) {

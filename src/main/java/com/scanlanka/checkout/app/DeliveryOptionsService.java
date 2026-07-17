@@ -2,7 +2,6 @@ package com.scanlanka.checkout.app;
 
 import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
-import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliveryMethodConfig;
@@ -56,10 +55,11 @@ public class DeliveryOptionsService {
     /** A cart line with its delivery attributes already resolved (variant else product). */
     public record CartLine(String name,
                            BoardSizeTier boardSizeTier,              // null ⇒ not couriable (e.g. glass — lorry only)
+                           java.math.BigDecimal weightKg,            // drives the Domex weight rate (null ⇒ 1 kg)
                            Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
                            Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
                            boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,
-                           boolean lorryOuterWhatsapp, boolean courierOuterBlocked,
+                           boolean lorryOuterWhatsapp, boolean courierOuterBlocked, boolean courierEnabled,
                            boolean whatsappOnly, int quantity) {}
 
     /** One delivery rail's outcome for the cart. */
@@ -142,6 +142,13 @@ public class DeliveryOptionsService {
         if (courierZone == null) {
             return unavailable(DeliveryMethod.COURIER, "NOT_SERVICEABLE_POSTAL");
         }
+        // Per-item courier switch (V48/V49, owner 2026-07-16: at launch only Scan White Board 1x1..4x2
+        // keep the courier) — a switched-off item hides the rail; names surfaced for the UI.
+        List<String> off = lines.stream()
+            .filter(l -> !l.courierEnabled()).map(CartLine::name).toList();
+        if (!off.isEmpty()) {
+            return new Option(DeliveryMethod.COURIER, false, "UNAVAILABLE_ITEMS", 0, 0, false, 0, off);
+        }
         // A non-couriable item (e.g. glass board — lorry only) hides courier for the whole cart.
         if (lines.stream().anyMatch(l -> l.boardSizeTier() == null)) {
             return unavailable(DeliveryMethod.COURIER, "MISSING_SIZE_TIER");
@@ -155,12 +162,13 @@ public class DeliveryOptionsService {
                 return new Option(DeliveryMethod.COURIER, false, "OVERSIZE_OUTER", 0, 0, false, 0, blocked);
             }
         }
+        // Domex weight rate (owner 2026-07-16): per board, first kg + additional kgs; packages above
+        // 2 ft add the area's per-package handling fee. Computed by the pure engine.
+        CourierRateCard rate = courierRates.findById(courierZone)
+            .orElseThrow(() -> new IllegalStateException("No courier rate for zone " + courierZone));
         long estimate = 0;
         for (CartLine line : lines) {
-            CourierRateCard rate = courierRates.findById(new CourierRateCardId(courierZone, line.boardSizeTier()))
-                .orElseThrow(() -> new IllegalStateException(
-                    "No courier rate for zone " + courierZone + " tier " + line.boardSizeTier()));
-            estimate += courierEngine.estimateLine(rate.getFlatCents(), line.quantity());
+            estimate += courierEngine.estimateLine(rate, line.weightKg(), line.boardSizeTier(), line.quantity());
         }
         return new Option(DeliveryMethod.COURIER, true, null, 0, estimate, false, 0, List.of());
     }

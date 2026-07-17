@@ -35,6 +35,7 @@ public final class ProductRequests {
         Boolean lorryOuterEnabled,
         Boolean lorryOuterWhatsapp,                          // outer lorry = contact us (glass, big boards)
         Boolean courierOuterBlocked,                         // no courier to outer Domex areas (6×3/6×4/8×4)
+        Boolean courierEnabled,                              // null ⇒ true (courier offered for this item)
         Boolean whatsappOnly) {}
 
     public record GroupInput(
@@ -82,6 +83,7 @@ public final class ProductRequests {
         Boolean active,
         Integer stockQty,           // SINGLE only
         Long singlePriceCents,      // SINGLE only
+        Integer displayOrder,       // storefront position (owner sheet order, V46); null unchanged
         @Valid DeliveryAttrs delivery) {}   // when present, replaces the product's delivery defaults
 
     public record ActiveRequest(boolean active) {}

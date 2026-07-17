@@ -27,6 +27,7 @@ public final class ProductResponses {
         Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
         boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,
         boolean lorryOuterWhatsapp, boolean courierOuterBlocked,
+        boolean courierEnabled,
         boolean whatsappOnly) {}
 
     public record AdminVariantDTO(
@@ -45,7 +46,8 @@ public final class ProductResponses {
 
     public record CatalogFacetsDTO(List<ParentFacetDTO> parents, List<String> categories) {}
 
-    public record CategoryCountDTO(String name, long count) {}
+    /** group: top-level storefront group ("Writing Boards" … "Portable Partition"), null = top-level. */
+    public record CategoryCountDTO(String name, long count, String group) {}
 
     public record VariantPreviewRowDTO(List<String> optionValues, int index) {}
 
@@ -76,7 +78,7 @@ public final class ProductResponses {
         long id, String name, String slug, String sku, String description, String details,
         String category, String handlingClass, Long parentProductId,
         boolean active, boolean archived, String priceMode,
-        Long singlePriceCents, Integer stockQty,
+        Long singlePriceCents, Integer stockQty, int displayOrder,
         DeliveryAttrsDTO delivery,
         List<String> imageUrls, List<SpecGroupDTO> specGroups, List<AdminVariantDTO> variants) {}
 

@@ -163,7 +163,7 @@ public class AdminCatalogService {
             p.getId(), p.getName(), p.getSlug(), p.getSku(), p.getDescription(), p.getDetails(),
             p.getCategory(), p.getHandlingClass().name(), p.getParentProductId(),
             p.isActive(), p.isArchived(), p.getPriceMode().name(),
-            p.getSinglePriceCents(), p.getStockQty(), productDelivery(p),
+            p.getSinglePriceCents(), p.getStockQty(), p.getDisplayOrder(), productDelivery(p),
             imageUrls, specGroups, variantDtos);
     }
 
@@ -172,7 +172,7 @@ public class AdminCatalogService {
             p.getLorryOuterCents(),
             p.getLorryColomboGateCents(), p.getLorrySuburbGateCents(), p.getLorryOuterGateCents(),
             p.isLorryColomboEnabled(), p.isLorrySuburbEnabled(), p.isLorryOuterEnabled(),
-            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isWhatsappOnly());
+            p.isLorryOuterWhatsapp(), p.isCourierOuterBlocked(), p.isCourierEnabled(), p.isWhatsappOnly());
     }
 
     private static DeliveryAttrsDTO variantDelivery(ProductVariant v) {
@@ -180,7 +180,7 @@ public class AdminCatalogService {
             v.getLorryOuterCents(),
             v.getLorryColomboGateCents(), v.getLorrySuburbGateCents(), v.getLorryOuterGateCents(),
             v.isLorryColomboEnabled(), v.isLorrySuburbEnabled(), v.isLorryOuterEnabled(),
-            v.isLorryOuterWhatsapp(), v.isCourierOuterBlocked(), v.isWhatsappOnly());
+            v.isLorryOuterWhatsapp(), v.isCourierOuterBlocked(), v.isCourierEnabled(), v.isWhatsappOnly());
     }
 
     private static String tierName(com.scanlanka.checkout.domain.BoardSizeTier tier) {

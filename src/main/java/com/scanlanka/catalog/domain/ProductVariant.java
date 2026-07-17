@@ -65,6 +65,8 @@ public class ProductVariant {
     private boolean lorryOuterWhatsapp = false;
     @Column(name = "courier_outer_blocked", nullable = false)
     private boolean courierOuterBlocked = false;
+    @Column(name = "courier_enabled", nullable = false)
+    private boolean courierEnabled = true;
     @Column(name = "whatsapp_only", nullable = false)
     private boolean whatsappOnly = false;
 
@@ -116,6 +118,8 @@ public class ProductVariant {
     public void setLorryOuterWhatsapp(boolean v) { this.lorryOuterWhatsapp = v; }
     public boolean isCourierOuterBlocked() { return courierOuterBlocked; }
     public void setCourierOuterBlocked(boolean v) { this.courierOuterBlocked = v; }
+    public boolean isCourierEnabled() { return courierEnabled; }
+    public void setCourierEnabled(boolean v) { this.courierEnabled = v; }
     public boolean isWhatsappOnly() { return whatsappOnly; }
     public void setWhatsappOnly(boolean whatsappOnly) { this.whatsappOnly = whatsappOnly; }
 }

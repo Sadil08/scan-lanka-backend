@@ -79,7 +79,7 @@ public class ProductQueryService {
     @Cacheable(value = "catalog-facets", key = "'category-counts'")
     public List<CategoryCountDTO> categoryCounts() {
         return products.countVisibleProductsByCategory().stream()
-            .map(row -> new CategoryCountDTO((String) row[0], ((Number) row[1]).longValue()))
+            .map(row -> new CategoryCountDTO((String) row[0], ((Number) row[1]).longValue(), (String) row[2]))
             .toList();
     }
 
@@ -114,9 +114,10 @@ public class ProductQueryService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_OR_INCOMPLETE_SELECTION"));
         var tier = firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier());
         boolean whatsappOnly = v.isWhatsappOnly() || p.isWhatsappOnly();
+        boolean courierOn = v.isCourierEnabled() && p.isCourierEnabled();     // per-item switch (V48)
         return new ResolveVariantResponse(v.getId(), v.getSku(), v.getPriceCents(),
             StockAvailability.fromQty(v.getStockQty()), whatsappOnly, tierName(tier),
-            tier != null && !whatsappOnly);
+            tier != null && courierOn && !whatsappOnly);
     }
 
     public record DetailView(ProductDetailDTO dto, String etag) {}
@@ -139,11 +140,13 @@ public class ProductQueryService {
             ? StockAvailability.fromQty(p.getStockQty())
             : StockAvailability.fromVariants(activeVariants);
 
+        // Couriable = has a size tier AND the per-item courier switch is on (V48) — not whatsapp-only.
         boolean couriable = p.getPriceMode() == PriceMode.SINGLE
-            ? p.getBoardSizeTier() != null && !p.isWhatsappOnly()
+            ? p.getBoardSizeTier() != null && p.isCourierEnabled() && !p.isWhatsappOnly()
             : !p.isWhatsappOnly() && activeVariants.stream().anyMatch(v -> {
                 var tier = firstNonNull(v.getBoardSizeTier(), p.getBoardSizeTier());
-                return tier != null && !(v.isWhatsappOnly() || p.isWhatsappOnly());
+                return tier != null && v.isCourierEnabled() && p.isCourierEnabled()
+                    && !(v.isWhatsappOnly() || p.isWhatsappOnly());
             });
 
         return new ProductDetailDTO(p.getId(), p.getSlug(), p.getName(), p.getDescription(), p.getDetails(),

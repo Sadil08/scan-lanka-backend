@@ -46,6 +46,16 @@ public class Product {
 
     private String category;
 
+    // Storefront top-level group over categories (V46/V47): the owner sheet's eight numbered
+    // headers ("Writing Boards" … "Portable Partition"); NULL renders the category top-level.
+    @Column(name = "category_group")
+    private String categoryGroup;
+
+    // Storefront listing order (owner's sheet row order, "most going products first"); seeded by
+    // V47, admin-created products default after all seeded ones.
+    @Column(name = "display_order", nullable = false)
+    private int displayOrder = 100000;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "price_mode", nullable = false)
     private PriceMode priceMode;
@@ -111,6 +121,11 @@ public class Product {
     @Column(name = "courier_outer_blocked", nullable = false)
     private boolean courierOuterBlocked = false;
 
+    // Per-item courier switch (V48, owner 2026-07-16): off ⇒ courier simply not offered for this item
+    // (launch: only Scan White Board 1x1..4x2 keep it). Effective value is product AND variant.
+    @Column(name = "courier_enabled", nullable = false)
+    private boolean courierEnabled = true;
+
     @Column(name = "whatsapp_only", nullable = false)
     private boolean whatsappOnly = false;                  // neither rail → WhatsApp (12)
 
@@ -162,6 +177,10 @@ public class Product {
     public void setDetails(String details) { this.details = details; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+    public String getCategoryGroup() { return categoryGroup; }
+    public void setCategoryGroup(String categoryGroup) { this.categoryGroup = categoryGroup; }
+    public int getDisplayOrder() { return displayOrder; }
+    public void setDisplayOrder(int displayOrder) { this.displayOrder = displayOrder; }
     public PriceMode getPriceMode() { return priceMode; }
     public Long getSinglePriceCents() { return singlePriceCents; }
     public void setSinglePriceCents(Long singlePriceCents) { this.singlePriceCents = singlePriceCents; }
@@ -203,6 +222,8 @@ public class Product {
     public void setLorryOuterWhatsapp(boolean v) { this.lorryOuterWhatsapp = v; }
     public boolean isCourierOuterBlocked() { return courierOuterBlocked; }
     public void setCourierOuterBlocked(boolean v) { this.courierOuterBlocked = v; }
+    public boolean isCourierEnabled() { return courierEnabled; }
+    public void setCourierEnabled(boolean v) { this.courierEnabled = v; }
     public boolean isWhatsappOnly() { return whatsappOnly; }
     public void setWhatsappOnly(boolean whatsappOnly) { this.whatsappOnly = whatsappOnly; }
     public boolean isActive() { return active; }

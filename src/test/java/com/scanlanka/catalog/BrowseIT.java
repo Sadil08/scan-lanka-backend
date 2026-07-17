@@ -32,11 +32,17 @@ class BrowseIT extends AbstractIntegrationTest {
     @Autowired SpecOptionRepository options;
 
     private Long seedProduct() {
-        return productService.create(new CreateProductRequest(
+        Long id = productService.create(new CreateProductRequest(
             null, "Carrom Board Browse", null, "desc", "details", "Boards", null, null, null,
             List.of(new GroupInput("Size", true, List.of("Small", "Large"))),
             List.of(new VariantInput(List.of("Small"), 8000, null, 10),
                     new VariantInput(List.of("Large"), 12000, null, 5))));
+        // Default browse order is display_order ASC (owner sheet order, V46) — put the fixture
+        // ahead of the seeded catalog so it appears on the first page / first facet.
+        Product p = products.findById(id).orElseThrow();
+        p.setDisplayOrder(0);
+        products.save(p);
+        return id;
     }
 
     @Test

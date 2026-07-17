@@ -60,6 +60,7 @@ class CheckoutIT extends AbstractIntegrationTest {
         Product p = products.findById(id).orElseThrow();
         p.setLorryColomboCents(lorryColomboCents);
         p.setBoardSizeTier(boardSizeTier);
+        p.setWeightKg(new java.math.BigDecimal("5"));   // drives the Domex weight rate (V48)
         products.save(p);
         return id;
     }
@@ -110,7 +111,8 @@ class CheckoutIT extends AbstractIntegrationTest {
                     + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.available").value(true))
-            .andExpect(jsonPath("$.courierEstimateCents").value(100000)); // CITY_LIMITS 2–6 ft = Rs 1,000
+            // 5 kg above 2 ft, CITY_LIMITS: Rs 380 + 4 × Rs 180 + Rs 750 handling = Rs 1,850
+            .andExpect(jsonPath("$.courierEstimateCents").value(185000));
     }
 
     @Test
@@ -133,7 +135,7 @@ class CheckoutIT extends AbstractIntegrationTest {
                     + "\"deliveryMethod\":\"COURIER\",\"postalCode\":\"00100\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.available").value(true))     // same board couriers fine to city-limits
-            .andExpect(jsonPath("$.courierEstimateCents").value(100000));
+            .andExpect(jsonPath("$.courierEstimateCents").value(185000));
     }
 
     @Test
@@ -145,8 +147,9 @@ class CheckoutIT extends AbstractIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.available").value(true))
             .andExpect(jsonPath("$.onlineTotalCents").value(0))
-            .andExpect(jsonPath("$.courierEstimateCents").value(150000))  // OUTSTATION, 2–6 ft = Rs 1,500
-            .andExpect(jsonPath("$.approxTotalCents").value(150250));
+            // 5 kg above 2 ft, OUTSTATION: Rs 500 + 4 × Rs 200 + Rs 1,500 handling = Rs 2,800
+            .andExpect(jsonPath("$.courierEstimateCents").value(280000))
+            .andExpect(jsonPath("$.approxTotalCents").value(280250));
     }
 
     @Test
@@ -192,7 +195,8 @@ class CheckoutIT extends AbstractIntegrationTest {
         assertThat(o.getStatus()).isEqualTo(OrderStatus.CONFIRMED);      // confirmed on placement, not pending
         assertThat(o.getDeliveryPayment()).isEqualTo(DeliveryPayment.COD);
         assertThat(o.getTotalCents()).isZero();
-        assertThat(o.getCourierEstimateCents()).isEqualTo(100000);       // Rs 1,000 under 2 ft OUTSTATION
+        // 5 kg under 2 ft, OUTSTATION weight rate: Rs 500 + 4 × Rs 200 = Rs 1,300 (no handling fee)
+        assertThat(o.getCourierEstimateCents()).isEqualTo(130000);
         assertThat(products.findById(id).orElseThrow().getStockQty()).isEqualTo(stockBefore - 1); // decremented now
 
         // FR-PAY-15: a courier (full-COD) order cannot be paid online

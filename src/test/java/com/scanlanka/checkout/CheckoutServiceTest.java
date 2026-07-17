@@ -61,8 +61,8 @@ class CheckoutServiceTest {
     private void stubLine(long productId, long unitPriceCents, Integer stock, int available) {
         when(catalog.resolveOrderLine(eq(productId), isNull()))
             .thenReturn(Optional.of(new OrderLine(productId, null, "SKU-" + productId, "Item " + productId,
-                null, unitPriceCents, stock, null, null, null, null, null, null, null,
-                true, true, true, false, false, false)));
+                null, unitPriceCents, stock, null, null, null, null, null, null, null, null,
+                true, true, true, false, false, true, false)));
         when(reservations.availableQuantity(eq(productId), isNull(), stock == null ? isNull() : eq(stock)))
             .thenReturn(available);
     }

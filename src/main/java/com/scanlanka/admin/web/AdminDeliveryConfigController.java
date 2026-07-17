@@ -9,7 +9,6 @@ import com.scanlanka.admin.app.AdminDeliveryConfigService.PostalZoneRequest;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.PostalZoneView;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.SettingsRequest;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.SettingsView;
-import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.shared.security.AuthPrincipal;
@@ -40,11 +39,11 @@ public class AdminDeliveryConfigController {
         return config.listCourierRates();
     }
 
-    @PutMapping("/courier-rate-card/{zone}/{sizeTier}")
-    public CourierRateView upsertCourierRate(@PathVariable CourierZone zone, @PathVariable BoardSizeTier sizeTier,
+    @PutMapping("/courier-rate-card/{zone}")
+    public CourierRateView upsertCourierRate(@PathVariable CourierZone zone,
                                              @RequestBody CourierRateRequest req,
                                              @AuthenticationPrincipal AuthPrincipal admin) {
-        return config.upsertCourierRate(zone, sizeTier, req, adminId(admin));
+        return config.upsertCourierRate(zone, req, adminId(admin));
     }
 
     @GetMapping("/delivery-settings")

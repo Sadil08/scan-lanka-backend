@@ -9,7 +9,6 @@ import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
 import com.scanlanka.checkout.app.LorryCostEngine;
 import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
-import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliverySettings;
@@ -21,6 +20,7 @@ import com.scanlanka.checkout.infra.DeliverySettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,9 +32,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Two-rail model (owner 2026-07-04/05): courier is available for every couriable product in every area;
- * large boards blocked TO outer areas only; fully admin-controlled lorry cells — per-zone enable switch,
- * per-cell gates (any zone, with or without own price), flat gate-met charge per zone.
+ * Two-rail model (owner 2026-07-04/05, courier re-priced 2026-07-16): the Domex courier is
+ * weight-based per board (first kg + additional kgs, plus a per-package handling fee above 2 ft)
+ * and per-item switchable (V48); large boards blocked TO outer areas only; fully admin-controlled
+ * lorry cells — per-zone enable switch, per-cell gates, flat gate-met charge per zone.
  */
 class DeliveryOptionsServiceTest {
 
@@ -54,18 +55,16 @@ class DeliveryOptionsServiceTest {
         lenient().when(s.getLorryCapSuburbCents()).thenReturn(150000L);   // Rs 1,500 - always applies
         lenient().when(s.getGateMetOuterCents()).thenReturn(100000L);     // Rs 1,000 (admin-set, no cap role)
         lenient().when(settings.findFirstByOrderByIdAsc()).thenReturn(Optional.of(s));
-        courierRate(CourierZone.CITY_LIMITS, BoardSizeTier.UNDER_2FT, 50000);
-        courierRate(CourierZone.CITY_LIMITS, BoardSizeTier.BETWEEN_2FT_6FT, 100000);
-        courierRate(CourierZone.SUBURBS, BoardSizeTier.UNDER_2FT, 75000);
-        courierRate(CourierZone.SUBURBS, BoardSizeTier.BETWEEN_2FT_6FT, 125000);
-        courierRate(CourierZone.OUTSTATION, BoardSizeTier.UNDER_2FT, 100000);
-        courierRate(CourierZone.OUTSTATION, BoardSizeTier.BETWEEN_2FT_6FT, 150000);
-        courierRate(CourierZone.FARAWAY, BoardSizeTier.BETWEEN_2FT_6FT, 200000);
+        // Owner 2026-07-16 rate card (V48): weight rates + above-2ft handling fee per area.
+        courierRate(CourierZone.CITY_LIMITS, 38000, 18000, 75000);
+        courierRate(CourierZone.SUBURBS, 38000, 18000, 100000);
+        courierRate(CourierZone.OUTSTATION, 50000, 20000, 150000);
+        courierRate(CourierZone.FARAWAY, 65000, 25000, 200000);
     }
 
-    private void courierRate(CourierZone zone, BoardSizeTier tier, long cents) {
-        lenient().when(courierRates.findById(new CourierRateCardId(zone, tier)))
-            .thenReturn(Optional.of(new CourierRateCard(zone, tier, cents)));
+    private void courierRate(CourierZone zone, long firstKg, long addlKg, long handling) {
+        lenient().when(courierRates.findById(zone))
+            .thenReturn(Optional.of(new CourierRateCard(zone, firstKg, addlKg, handling)));
     }
 
     private void colomboPostal() {
@@ -80,35 +79,85 @@ class DeliveryOptionsServiceTest {
         when(zoneResolver.courierZone(eq("20000"), any())).thenReturn(Optional.of(CourierZone.OUTSTATION));
     }
 
-    /** All zones enabled, no gates/flags — the common happy-path line. */
+    /** All zones enabled, no gates/flags, courier on, 1 kg — the common happy-path line. */
     private static CartLine board(long lorryCentsAllZones, BoardSizeTier tier, int qty) {
-        return new CartLine("Board", tier,
+        return board(lorryCentsAllZones, tier, BigDecimal.ONE, qty);
+    }
+
+    private static CartLine board(long lorryCentsAllZones, BoardSizeTier tier, BigDecimal weightKg, int qty) {
+        return new CartLine("Board", tier, weightKg,
             lorryCentsAllZones, lorryCentsAllZones, lorryCentsAllZones,
-            null, null, null, true, true, true, false, false, false, qty);
+            null, null, null, true, true, true, false, false, true, false, qty);
     }
 
     private static Option optionFor(DeliveryQuote q, DeliveryMethod method) {
         return q.options().stream().filter(o -> o.method() == method).findFirst().orElseThrow();
     }
 
-    // --- courier available everywhere ---
+    // --- courier weight pricing (owner 2026-07-16) ---
 
     @Test
-    void courierAvailableInColomboCityLimits() {
+    void courierChargesFirstKgPlusHandlingInCityLimits() {
         colomboPostal();
         DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 1)), "00100", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isTrue();
-        assertThat(courier.courierEstimateCents()).isEqualTo(100000); // CITY_LIMITS 2–6 ft = Rs 1,000
+        // 1 kg = Rs 380 + Rs 750 handling (above 2 ft, CITY_LIMITS)
+        assertThat(courier.courierEstimateCents()).isEqualTo(113000);
     }
 
     @Test
-    void courierAvailableInOuterZoneForNormalBoards() {
+    void courierChargesAdditionalKgsWithoutHandlingUnder2ft() {
+        colomboPostal();
+        DeliveryQuote q = service.options(
+            List.of(board(80000, BoardSizeTier.UNDER_2FT, new BigDecimal("3"), 1)), "00100", null, 700000);
+        // 3 kg under 2 ft: Rs 380 + 2 × Rs 180, no handling
+        assertThat(optionFor(q, DeliveryMethod.COURIER).courierEstimateCents()).isEqualTo(74000);
+    }
+
+    @Test
+    void courierOwnersWorkedExampleFiveByFourMagneticBoardFaraway() {
+        // owner's example: 5 x 4 magnetic board, 20 kg, above 2 ft, faraway:
+        // 1st kg Rs 650 + 19 × Rs 250 + Rs 2,000 handling = Rs 7,400
+        when(zoneResolver.postalZone("99999")).thenReturn(Optional.empty());
+        when(zoneResolver.courierZone(eq("99999"), any())).thenReturn(Optional.of(CourierZone.FARAWAY));
+        DeliveryQuote q = service.options(
+            List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, new BigDecimal("20"), 1)), "99999", "Madulkele", 700000);
+        assertThat(optionFor(q, DeliveryMethod.COURIER).courierEstimateCents()).isEqualTo(740000);
+    }
+
+    @Test
+    void courierEstimateMultipliesPerBoard() {
         outerPostal();
-        DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 2)), "20000", null, 700000);
+        DeliveryQuote q = service.options(
+            List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, new BigDecimal("2"), 2)), "20000", null, 700000);
+        // per board OUTSTATION: Rs 500 + 1 × Rs 200 + Rs 1,500 handling = Rs 2,200; × 2 boards
+        assertThat(optionFor(q, DeliveryMethod.COURIER).courierEstimateCents()).isEqualTo(440000);
+    }
+
+    @Test
+    void courierMissingWeightBillsFirstKgOnly() {
+        colomboPostal();
+        DeliveryQuote q = service.options(
+            List.of(board(80000, BoardSizeTier.UNDER_2FT, null, 1)), "00100", null, 700000);
+        assertThat(optionFor(q, DeliveryMethod.COURIER).courierEstimateCents()).isEqualTo(38000);
+    }
+
+    // --- per-item courier switch (V48/V49) ---
+
+    @Test
+    void courierSwitchedOffItemHidesCourierAndListsItems() {
+        colomboPostal();
+        CartLine lorryOnly = new CartLine("Scan Green Board 2 x 3", BoardSizeTier.BETWEEN_2FT_6FT, BigDecimal.ONE,
+            60000L, 60000L, null, null, null, null, true, true, true,
+            false, false, false /* courier OFF */, false, 1);
+        DeliveryQuote q = service.options(List.of(lorryOnly), "00100", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
-        assertThat(courier.available()).isTrue();
-        assertThat(courier.courierEstimateCents()).isEqualTo(300000); // 2 × Rs 1,500 (OUTSTATION)
+        assertThat(courier.available()).isFalse();
+        assertThat(courier.reason()).isEqualTo("UNAVAILABLE_ITEMS");
+        assertThat(courier.blockingItems()).containsExactly("Scan Green Board 2 x 3");
+        // lorry untouched
+        assertThat(optionFor(q, DeliveryMethod.COMPANY_LORRY).available()).isTrue();
     }
 
     // --- large boards blocked TO outer areas only ---
@@ -116,9 +165,9 @@ class DeliveryOptionsServiceTest {
     @Test
     void largeBoardBlockedFromCourierToOuterArea() {
         outerPostal();
-        CartLine big = new CartLine("Scan White Board 8 x 4", BoardSizeTier.BETWEEN_2FT_6FT,
+        CartLine big = new CartLine("Scan White Board 8 x 4", BoardSizeTier.BETWEEN_2FT_6FT, new BigDecimal("20"),
             200000L, 200000L, 200000L, null, null, null, true, true, true,
-            false, true /* courierOuterBlocked */, false, 1);
+            false, true /* courierOuterBlocked */, true, false, 1);
         DeliveryQuote q = service.options(List.of(big), "20000", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isFalse();
@@ -129,20 +178,21 @@ class DeliveryOptionsServiceTest {
     @Test
     void largeBoardStillCourierableToCityLimits() {
         colomboPostal();
-        CartLine big = new CartLine("Scan White Board 8 x 4", BoardSizeTier.BETWEEN_2FT_6FT,
+        CartLine big = new CartLine("Scan White Board 8 x 4", BoardSizeTier.BETWEEN_2FT_6FT, new BigDecimal("20"),
             200000L, 200000L, 200000L, null, null, null, true, true, true,
-            false, true /* courierOuterBlocked */, false, 1);
+            false, true /* courierOuterBlocked */, true, false, 1);
         DeliveryQuote q = service.options(List.of(big), "00100", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isTrue();
-        assertThat(courier.courierEstimateCents()).isEqualTo(100000);
+        // 20 kg city limits above 2 ft: Rs 380 + 19 × Rs 180 + Rs 750 = Rs 4,550
+        assertThat(courier.courierEstimateCents()).isEqualTo(455000);
     }
 
     @Test
     void nonCouriableItemHidesCourier() {
         outerPostal();
-        CartLine glass = new CartLine("Glass Board", null, 300000L, 400000L, null,
-            null, null, null, true, true, true, false, false, false, 1);
+        CartLine glass = new CartLine("Glass Board", null, null, 300000L, 400000L, null,
+            null, null, null, true, true, true, false, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(glass), "20000", null, 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isFalse();
@@ -153,8 +203,8 @@ class DeliveryOptionsServiceTest {
 
     @Test
     void whatsappOnlyItemHidesAllRails() {
-        CartLine glass = new CartLine("Glass Board 8 x 4", null, null, null, null,
-            null, null, null, true, true, true, false, false, true, 1);
+        CartLine glass = new CartLine("Glass Board 8 x 4", null, null, null, null, null,
+            null, null, null, true, true, true, false, false, true, true, 1);
         DeliveryQuote q = service.options(List.of(glass), "00100", null, 5000000);
         assertThat(q.whatsappOnly()).isTrue();
         assertThat(q.options()).isEmpty();
@@ -163,8 +213,8 @@ class DeliveryOptionsServiceTest {
     @Test
     void outerContactItemHidesLorryForOuterAddress() {
         outerPostal();
-        CartLine keyHolder = new CartLine("Key Holder", null, 80000L, 100000L, null,
-            null, null, null, true, true, true, true /* outer contact */, false, false, 1);
+        CartLine keyHolder = new CartLine("Key Holder", null, null, 80000L, 100000L, null,
+            null, null, null, true, true, true, true /* outer contact */, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(keyHolder), "20000", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isFalse();
@@ -175,8 +225,8 @@ class DeliveryOptionsServiceTest {
     void adminDisabledZoneHidesLorryAndListsItems() {
         // owner 2026-07-05: small boards — no lorry to outer; the customer simply uses the courier.
         outerPostal();
-        CartLine smallBoard = new CartLine("Scan White Board 1 x 1", BoardSizeTier.UNDER_2FT,
-            50000L, 50000L, null, null, null, null, true, true, false /* outer OFF */, false, false, false, 1);
+        CartLine smallBoard = new CartLine("Scan White Board 1 x 1", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            50000L, 50000L, null, null, null, null, true, true, false /* outer OFF */, false, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(smallBoard), "20000", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isFalse();
@@ -189,8 +239,8 @@ class DeliveryOptionsServiceTest {
     @Test
     void adminDisabledZoneOnlyAffectsThatZone() {
         colomboPostal();
-        CartLine smallBoard = new CartLine("Scan White Board 1 x 1", BoardSizeTier.UNDER_2FT,
-            50000L, 50000L, null, null, null, null, true, true, false /* outer OFF */, false, false, false, 2);
+        CartLine smallBoard = new CartLine("Scan White Board 1 x 1", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            50000L, 50000L, null, null, null, null, true, true, false /* outer OFF */, false, false, true, false, 2);
         DeliveryQuote q = service.options(List.of(smallBoard), "00100", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();                  // Colombo unaffected by the outer switch
@@ -214,8 +264,8 @@ class DeliveryOptionsServiceTest {
     void lorryGatedSmallItemBelowThresholdReportsAddMore() {
         colomboPostal();
         // Colombo gate Rs 3,000, subtotal Rs 1,100 → unavailable, add Rs 1,900 more
-        CartLine tableTop = new CartLine("Table Top", BoardSizeTier.UNDER_2FT,
-            null, null, null, 300000L, 300000L, null, true, true, true, false, false, false, 1);
+        CartLine tableTop = new CartLine("Table Top", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            null, null, null, 300000L, 300000L, null, true, true, true, false, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(tableTop), "00100", null, 110000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isFalse();
@@ -227,8 +277,8 @@ class DeliveryOptionsServiceTest {
     void lorryGatedSmallItemOverThresholdChargesFlatOnce() {
         colomboPostal();
         // 4× table tops, subtotal Rs 4,400 > Rs 3,000 gate → flat Rs 1,000 (once, not × qty)
-        CartLine tableTop = new CartLine("Table Top", BoardSizeTier.UNDER_2FT,
-            null, null, null, 300000L, 300000L, null, true, true, true, false, false, false, 4);
+        CartLine tableTop = new CartLine("Table Top", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            null, null, null, 300000L, 300000L, null, true, true, true, false, false, true, false, 4);
         DeliveryQuote q = service.options(List.of(tableTop), "00100", null, 440000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();
@@ -254,10 +304,10 @@ class DeliveryOptionsServiceTest {
         // Reproduces the exact regression the owner reported: a small order (subtotal well under the
         // old Rs 6,000 trigger) whose per-cell sum still exceeds the cap must ALSO be capped now.
         colomboPostal();
-        CartLine boardA = new CartLine("Board A", BoardSizeTier.UNDER_2FT,
-            80000L, 80000L, 80000L, null, null, null, true, true, true, false, false, false, 1);
-        CartLine boardB = new CartLine("Board B", BoardSizeTier.UNDER_2FT,
-            80000L, 80000L, 80000L, null, null, null, true, true, true, false, false, false, 1);
+        CartLine boardA = new CartLine("Board A", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            80000L, 80000L, 80000L, null, null, null, true, true, true, false, false, true, false, 1);
+        CartLine boardB = new CartLine("Board B", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            80000L, 80000L, 80000L, null, null, null, true, true, true, false, false, true, false, 1);
         // subtotal ~Rs 1,687 (well below Rs 6,000); raw lorry sum = 2 × Rs 800 = Rs 1,600
         DeliveryQuote q = service.options(List.of(boardA, boardB), "00100", null, 168700);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
@@ -269,8 +319,8 @@ class DeliveryOptionsServiceTest {
     void lorryNotBumpedUpWhenPricedSumIsAlreadyBelowCap() {
         colomboPostal();
         // 1× board at Rs 300 — the cap never bumps a cheaper delivery UP to the ceiling
-        CartLine cheapBoard = new CartLine("Small Board", BoardSizeTier.UNDER_2FT,
-            30000L, 30000L, 30000L, null, null, null, true, true, true, false, false, false, 1);
+        CartLine cheapBoard = new CartLine("Small Board", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            30000L, 30000L, 30000L, null, null, null, true, true, true, false, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(cheapBoard), "00100", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();
@@ -303,9 +353,9 @@ class DeliveryOptionsServiceTest {
     void gatedCellWithOwnPriceChargesPerUnitWhenMet() {
         // owner 2026-07-05: a gated cell may carry its own price — used instead of the flat charge.
         colomboPostal();
-        CartLine item = new CartLine("Acrylic Board", BoardSizeTier.UNDER_2FT,
+        CartLine item = new CartLine("Acrylic Board", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
             30000L /* Rs 300 when gate met */, null, null, 300000L, null, null,
-            true, true, true, false, false, false, 3);
+            true, true, true, false, false, true, false, 3);
         DeliveryQuote q = service.options(List.of(item), "00100", null, 400000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();
@@ -316,9 +366,9 @@ class DeliveryOptionsServiceTest {
     void outerGateUsesOuterFlatChargeWhenMet() {
         // Gates now work on the outer zone too (owner 2026-07-05).
         outerPostal();
-        CartLine item = new CartLine("Small Item", BoardSizeTier.UNDER_2FT,
+        CartLine item = new CartLine("Small Item", BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
             null, null, null, null, null, 600000L /* outer gate Rs 6,000 */,
-            true, true, true, false, false, false, 1);
+            true, true, true, false, false, true, false, 1);
         DeliveryQuote q = service.options(List.of(item), "20000", null, 700000);
         Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
         assertThat(lorry.available()).isTrue();
@@ -344,6 +394,6 @@ class DeliveryOptionsServiceTest {
         DeliveryQuote q = service.options(List.of(board(80000, BoardSizeTier.BETWEEN_2FT_6FT, 1)), "99999", "Colombo", 700000);
         Option courier = optionFor(q, DeliveryMethod.COURIER);
         assertThat(courier.available()).isTrue();
-        assertThat(courier.courierEstimateCents()).isEqualTo(100000);
+        assertThat(courier.courierEstimateCents()).isEqualTo(113000);
     }
 }

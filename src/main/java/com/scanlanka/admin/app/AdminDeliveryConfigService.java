@@ -1,8 +1,6 @@
 package com.scanlanka.admin.app;
 
-import com.scanlanka.checkout.domain.BoardSizeTier;
 import com.scanlanka.checkout.domain.CourierRateCard;
-import com.scanlanka.checkout.domain.CourierRateCardId;
 import com.scanlanka.checkout.domain.CourierZone;
 import com.scanlanka.checkout.domain.DeliveryMethod;
 import com.scanlanka.checkout.domain.DeliveryMethodConfig;
@@ -48,8 +46,10 @@ public class AdminDeliveryConfigService {
         this.cache = cache;
     }
 
-    public record CourierRateView(CourierZone zone, BoardSizeTier sizeTier, long flatCents) {}
-    public record CourierRateRequest(long flatCents) {}
+    /** Domex weight rate per area (V48): first kg + additional kg, plus the above-2ft handling fee. */
+    public record CourierRateView(CourierZone zone, long firstKgCents, long addlKgCents,
+                                  long handlingOver2ftCents) {}
+    public record CourierRateRequest(long firstKgCents, long addlKgCents, long handlingOver2ftCents) {}
     /**
      * Global delivery settings. {@code lorryMinBillCents} is retired (per-cell gates since 2026-07-03)
      * but kept for compatibility. {@code lorryCapColomboCents}/{@code lorryCapSuburbCents} (owner
@@ -73,24 +73,26 @@ public class AdminDeliveryConfigService {
     @Transactional(readOnly = true)
     public List<CourierRateView> listCourierRates() {
         return courierRates.findAll().stream()
-            .sorted(Comparator.comparing(CourierRateCard::getZone).thenComparing(CourierRateCard::getSizeTier))
-            .map(r -> new CourierRateView(r.getZone(), r.getSizeTier(), r.getFlatCents()))
+            .sorted(Comparator.comparing(CourierRateCard::getZone))
+            .map(r -> new CourierRateView(r.getZone(), r.getFirstKgCents(), r.getAddlKgCents(),
+                r.getHandlingOver2ftCents()))
             .toList();
     }
 
     @Transactional
-    public CourierRateView upsertCourierRate(CourierZone zone, BoardSizeTier sizeTier, CourierRateRequest req,
-                                             Long adminId) {
-        if (req.flatCents() < 0) throw badRequest("NEGATIVE_RATE");
-        CourierRateCardId id = new CourierRateCardId(zone, sizeTier);
-        CourierRateCard card = courierRates.findById(id)
-            .map(c -> { c.update(req.flatCents()); return c; })
-            .orElseGet(() -> new CourierRateCard(zone, sizeTier, req.flatCents()));
+    public CourierRateView upsertCourierRate(CourierZone zone, CourierRateRequest req, Long adminId) {
+        if (req.firstKgCents() < 0 || req.addlKgCents() < 0 || req.handlingOver2ftCents() < 0) {
+            throw badRequest("NEGATIVE_RATE");
+        }
+        CourierRateCard card = courierRates.findById(zone)
+            .map(c -> { c.update(req.firstKgCents(), req.addlKgCents(), req.handlingOver2ftCents()); return c; })
+            .orElseGet(() -> new CourierRateCard(zone, req.firstKgCents(), req.addlKgCents(),
+                req.handlingOver2ftCents()));
         courierRates.save(card);
-        audit.log(adminId, "COURIER_RATE_UPDATE", "courier_rate_card", zone.name() + "/" + sizeTier.name(), null,
-            String.valueOf(req.flatCents()));
+        audit.log(adminId, "COURIER_RATE_UPDATE", "courier_rate_card", zone.name(), null,
+            req.firstKgCents() + "/" + req.addlKgCents() + "/+2ft:" + req.handlingOver2ftCents());
         cache.evictAll();
-        return new CourierRateView(zone, sizeTier, req.flatCents());
+        return new CourierRateView(zone, req.firstKgCents(), req.addlKgCents(), req.handlingOver2ftCents());
     }
 
     // --- Global delivery settings (gate-met flat charges; legacy min bill kept) ---

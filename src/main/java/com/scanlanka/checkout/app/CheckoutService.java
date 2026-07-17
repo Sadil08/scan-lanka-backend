@@ -215,11 +215,11 @@ public class CheckoutService {
 
     private List<CartLine> cartLines(List<PricedLine> priced) {
         return priced.stream()
-            .map(p -> new CartLine(p.line().name(), p.line().boardSizeTier(),
+            .map(p -> new CartLine(p.line().name(), p.line().boardSizeTier(), p.line().weightKg(),
                 p.line().lorryColomboCents(), p.line().lorrySuburbCents(), p.line().lorryOuterCents(),
                 p.line().lorryColomboGateCents(), p.line().lorrySuburbGateCents(), p.line().lorryOuterGateCents(),
                 p.line().lorryColomboEnabled(), p.line().lorrySuburbEnabled(), p.line().lorryOuterEnabled(),
-                p.line().lorryOuterWhatsapp(), p.line().courierOuterBlocked(),
+                p.line().lorryOuterWhatsapp(), p.line().courierOuterBlocked(), p.line().courierEnabled(),
                 p.line().whatsappOnly(), p.quantity()))
             .toList();
     }

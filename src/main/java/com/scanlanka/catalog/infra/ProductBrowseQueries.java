@@ -42,7 +42,9 @@ public class ProductBrowseQueries {
             case "price_asc" -> " ORDER BY COALESCE(single_price_cents, price_range_min_cents, 0) ASC, name ASC";
             case "price_desc" -> " ORDER BY COALESCE(single_price_cents, price_range_max_cents, 0) DESC, name ASC";
             case "name" -> " ORDER BY name ASC";
-            default -> " ORDER BY created_at DESC";
+            // Default listing order = the owner's sheet order (display_order, V46/V47);
+            // unordered (admin-created) products fall after the seeded ones, newest first.
+            default -> " ORDER BY display_order ASC, created_at DESC, id DESC";
         };
 
         Query countQ = em.createNativeQuery("SELECT COUNT(*) FROM product" + where);
