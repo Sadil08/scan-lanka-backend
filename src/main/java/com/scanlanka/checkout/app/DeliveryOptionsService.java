@@ -29,6 +29,12 @@ import java.util.Optional;
  * with reason {@code OVERSIZE_OUTER}; an item flagged {@code lorryOuterWhatsapp} (glass, key holders, 6×4/8×4)
  * hides the lorry for an outer lorry zone (reason {@code WHATSAPP_OUTER} → contact us). Both list the
  * blocking items so the customer can remove them, switch rail, or contact us.
+ *
+ * <p><b>Mixed cart (owner 2026-07-17):</b> a small board is courier-only (its lorry is switched off) and a
+ * big board is lorry-only (its courier is switched off). Ordered together neither rail is per-item clean,
+ * but the order must still ship: the presence of a lorry-only item forces the whole cart onto the lorry, so
+ * the courier-preferring small boards ride along rather than blocking it. Courier stays hidden (the big
+ * board has no courier route), so the checkout offers the lorry alone.
  */
 @Service
 public class DeliveryOptionsService {
@@ -103,9 +109,16 @@ public class DeliveryOptionsService {
             return unavailable(DeliveryMethod.COMPANY_LORRY, "WHATSAPP_OUTER");
         }
         // Admin switched the lorry off for this zone on some item (owner 2026-07-05, e.g. small boards
-        // to outer) — rail not offered; the customer simply uses the courier. Names surfaced for the UI.
+        // that prefer the courier) — normally the rail isn't offered and the customer uses the courier.
+        // BUT when the cart ALSO holds a lorry-only item (one with no courier route — courier switched off,
+        // or non-couriable like glass), the whole order MUST go by lorry, so those courier-preferring items
+        // ride along instead of vetoing the rail (owner 2026-07-17: big board + small board → company lorry).
+        // A genuinely lorry-only item whose lorry is also off stays a blocker (undeliverable). Names surfaced.
+        boolean cartForcesLorry = lines.stream().anyMatch(DeliveryOptionsService::lorryOnly);
         List<String> off = lines.stream()
-            .filter(l -> !lorryEnabled(l, lz)).map(CartLine::name).toList();
+            .filter(l -> !lorryEnabled(l, lz))
+            .filter(l -> !cartForcesLorry || lorryOnly(l))
+            .map(CartLine::name).toList();
         if (!off.isEmpty()) {
             return new Option(DeliveryMethod.COMPANY_LORRY, false, "UNAVAILABLE_ITEMS", 0, 0, false, 0, off);
         }
@@ -171,6 +184,15 @@ public class DeliveryOptionsService {
             estimate += courierEngine.estimateLine(rate, line.weightKg(), line.boardSizeTier(), line.quantity());
         }
         return new Option(DeliveryMethod.COURIER, true, null, 0, estimate, false, 0, List.of());
+    }
+
+    /**
+     * An item with no courier route — courier switched off (V48/V49) or non-couriable (no size tier,
+     * e.g. glass). Such an item can only ship by lorry, so its presence forces the whole cart onto the
+     * lorry and lets courier-preferring items ride along (owner 2026-07-17).
+     */
+    private static boolean lorryOnly(CartLine line) {
+        return !line.courierEnabled() || line.boardSizeTier() == null;
     }
 
     /** Admin per-zone lorry switch (owner 2026-07-05): effective value already resolved per line. */

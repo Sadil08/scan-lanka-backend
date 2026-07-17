@@ -160,6 +160,82 @@ class DeliveryOptionsServiceTest {
         assertThat(optionFor(q, DeliveryMethod.COMPANY_LORRY).available()).isTrue();
     }
 
+    // --- mixed cart: courier-only small board + lorry-only big board (owner 2026-07-17) ---
+
+    /** A small board that ships by courier only: courier on, lorry switched off in every zone. */
+    private static CartLine courierOnlySmall(String name, long lorryCents) {
+        return new CartLine(name, BoardSizeTier.UNDER_2FT, BigDecimal.ONE,
+            lorryCents, lorryCents, lorryCents, null, null, null,
+            false, false, false /* lorry OFF all zones */, false, false, true /* courier ON */, false, 1);
+    }
+
+    /** A big board that ships by lorry only: courier switched off, lorry on (Colombo/Suburb), outer=WhatsApp. */
+    private static CartLine lorryOnlyBig(String name, long lorryCents) {
+        return new CartLine(name, BoardSizeTier.BETWEEN_2FT_6FT, new BigDecimal("15"),
+            lorryCents, lorryCents, lorryCents, null, null, null,
+            true, true, true, true /* outer WhatsApp */, false, false /* courier OFF */, false, 1);
+    }
+
+    @Test
+    void mixedCartOffersLorryCarryingTheCourierOnlySmallBoard() {
+        colomboPostal();
+        // 1x1 (courier-only, lorry off) + 6x4 (lorry-only, courier off) ordered together: pre-fix this
+        // locked out BOTH rails. Now the lorry-only big board forces the cart onto the lorry, so the small
+        // board rides along and the lorry is offered for the whole order.
+        DeliveryQuote q = service.options(
+            List.of(courierOnlySmall("Scan White Board 1x1", 50000L), lorryOnlyBig("Scan White Board 6 x 4", 100000L)),
+            "00100", null, 700000);
+        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
+        assertThat(lorry.available()).isTrue();
+        assertThat(lorry.prepaidCents()).isEqualTo(100000);      // Rs 500 + Rs 1,000 = Rs 1,500, capped to Rs 1,000
+        // Courier stays hidden — the big board has no courier route.
+        Option courier = optionFor(q, DeliveryMethod.COURIER);
+        assertThat(courier.available()).isFalse();
+        assertThat(courier.reason()).isEqualTo("UNAVAILABLE_ITEMS");
+        assertThat(courier.blockingItems()).containsExactly("Scan White Board 6 x 4");
+    }
+
+    @Test
+    void courierOnlySmallBoardAloneStillHidesLorry() {
+        // The ride-along must NOT leak into a pure small-board cart: with no lorry-only item present the
+        // small board's lorry-off switch still vetoes the lorry, leaving the courier as the only rail.
+        colomboPostal();
+        DeliveryQuote q = service.options(
+            List.of(courierOnlySmall("Scan White Board 1x1", 50000L)), "00100", null, 700000);
+        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
+        assertThat(lorry.available()).isFalse();
+        assertThat(lorry.reason()).isEqualTo("UNAVAILABLE_ITEMS");
+        assertThat(lorry.blockingItems()).containsExactly("Scan White Board 1x1");
+        assertThat(optionFor(q, DeliveryMethod.COURIER).available()).isTrue();
+    }
+
+    @Test
+    void mixedCartToOuterAddressRoutesLorryToWhatsapp() {
+        // Outer address: the lorry-only big board carries lorry_outer_whatsapp, so the whole outer order is
+        // arranged via contact — the mixed-cart ride-along doesn't override the outer WhatsApp rule.
+        outerPostal();
+        DeliveryQuote q = service.options(
+            List.of(courierOnlySmall("Scan White Board 1x1", 50000L), lorryOnlyBig("Scan White Board 6 x 4", 100000L)),
+            "20000", null, 700000);
+        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
+        assertThat(lorry.available()).isFalse();
+        assertThat(lorry.reason()).isEqualTo("WHATSAPP_OUTER");
+    }
+
+    @Test
+    void mixedCartWithNonCouriableGlassAlsoForcesLorry() {
+        // A non-couriable item (glass, no size tier) is lorry-only too — it likewise lets a courier-preferring
+        // small board ride the lorry rather than locking the cart out.
+        colomboPostal();
+        CartLine glass = new CartLine("Glass Board", null, null, 40000L, 40000L, 40000L,
+            null, null, null, true, true, true, false, false, true, false, 1);
+        DeliveryQuote q = service.options(
+            List.of(courierOnlySmall("Scan White Board 1x1", 50000L), glass), "00100", null, 700000);
+        Option lorry = optionFor(q, DeliveryMethod.COMPANY_LORRY);
+        assertThat(lorry.available()).isTrue();
+        assertThat(lorry.prepaidCents()).isEqualTo(90000);       // Rs 500 + Rs 400, under the Rs 1,000 cap
+    }
+
     // --- large boards blocked TO outer areas only ---
 
     @Test
