@@ -45,6 +45,15 @@ jobs:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
 
+      - name: Upload JAR for deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/scanlanka-backend-0.0.1-SNAPSHOT.jar
+          retention-days: 3
+          if-no-files-found: error
+
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -54,3 +63,53 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy to EC2
+    needs: [build, secrets]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+
+      - name: Write SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2.pem
+          chmod 600 ~/.ssh/ec2.pem
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload JAR as app.jar.new
+        run: |
+          scp -i ~/.ssh/ec2.pem -o StrictHostKeyChecking=yes \
+            scanlanka-backend-0.0.1-SNAPSHOT.jar \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/opt/scanlanka/app.jar.new"
+
+      - name: Swap JAR, restart, health-check
+        run: |
+          ssh -i ~/.ssh/ec2.pem -o StrictHostKeyChecking=yes \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<'EOF'
+          set -euo pipefail
+          cd /opt/scanlanka
+          docker compose up -d
+          sudo systemctl stop scanlanka
+          sudo mv app.jar.new app.jar
+          sudo systemctl start scanlanka
+          echo "Waiting for Spring Boot..."
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+              echo "Health UP"
+              sudo systemctl is-active scanlanka
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Health check failed"
+          sudo journalctl -u scanlanka -n 80 --no-pager || true
+          exit 1
+          EOF
