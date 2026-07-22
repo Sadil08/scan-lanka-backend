@@ -4,7 +4,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -12,14 +18,21 @@ import java.io.IOException;
 
 /**
  * Hardens uploaded images (01 NFR-CATALOG-1, global/08 T-6/T-21): magic-byte check, size cap, and a
- * **decode → re-encode** that destroys polyglots and strips EXIF metadata. Output is always PNG.
+ * **decode → re-encode** that destroys polyglots and strips EXIF metadata.
+ *
+ * <p>Output is <b>JPEG</b> (owner 2026-07-22). We previously re-encoded to PNG, which for photographic
+ * product shots is ~9× larger than the source JPEG and made the storefront slow to load — every card
+ * pulled a multi-MB PNG from the backend through the Vercel proxy (no CDN). JPEG keeps the same
+ * decode→re-encode hardening (full pixel decode strips any embedded payload and EXIF) at a fraction of
+ * the bytes. Transparency is flattened onto white since JPEG has no alpha.
  */
 @Component
 public class ImageProcessing {
 
     private static final long MAX_BYTES = 5L * 1024 * 1024; // 5MB
+    private static final float JPEG_QUALITY = 0.82f;        // visually lossless for web at card/gallery sizes
 
-    /** @return re-encoded PNG bytes. @throws 413/415 on oversize/non-image. */
+    /** @return re-encoded JPEG bytes. @throws 413/415 on oversize/non-image. */
     public byte[] validateAndReencode(byte[] input) {
         if (input == null || input.length == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EMPTY_FILE");
@@ -35,16 +48,43 @@ public class ImageProcessing {
             if (img == null) {
                 throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_IMAGE");
             }
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            ImageIO.write(img, "png", out);   // re-encode → no EXIF, no embedded payloads
-            return out.toByteArray();
+            return encodeJpeg(flattenToRgb(img), JPEG_QUALITY); // re-encode → no EXIF, no embedded payloads
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_IMAGE");
         }
     }
 
     public String outputExtension() {
-        return "png";
+        return "jpg";
+    }
+
+    /** JPEG can't carry alpha — composite over white so PNG/GIF transparency doesn't turn black. */
+    private static BufferedImage flattenToRgb(BufferedImage src) {
+        if (src.getType() == BufferedImage.TYPE_INT_RGB && !src.getColorModel().hasAlpha()) {
+            return src;
+        }
+        BufferedImage rgb = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = rgb.createGraphics();
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, src.getWidth(), src.getHeight());
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return rgb;
+    }
+
+    private static byte[] encodeJpeg(BufferedImage img, float quality) throws IOException {
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ImageWriteParam param = writer.getDefaultWriteParam();
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        param.setCompressionQuality(quality);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(ios);
+            writer.write(null, new IIOImage(img, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        return out.toByteArray();
     }
 
     /** Magic-byte sniff (not by client extension) — JPEG / PNG / GIF / WEBP. */

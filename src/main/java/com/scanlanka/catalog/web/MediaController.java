@@ -25,10 +25,22 @@ public class MediaController {
     public ResponseEntity<byte[]> get(@PathVariable String key) {
         byte[] data = storage.load(key);  // key validated against traversal inside storage
         return ResponseEntity.ok()
-            .contentType(MediaType.IMAGE_PNG)
+            .contentType(contentTypeFor(key))  // must match the stored bytes — nosniff means no browser fallback
             .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePublic())
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
             .header("X-Content-Type-Options", "nosniff")
             .body(data);
+    }
+
+    private static MediaType contentTypeFor(String key) {
+        int dot = key.lastIndexOf('.');
+        String ext = dot >= 0 ? key.substring(dot + 1).toLowerCase() : "";
+        return switch (ext) {
+            case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
+            case "png" -> MediaType.IMAGE_PNG;
+            case "gif" -> MediaType.IMAGE_GIF;
+            case "webp" -> MediaType.parseMediaType("image/webp");
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
     }
 }

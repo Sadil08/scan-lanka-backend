@@ -157,7 +157,11 @@ public class ProductQueryService {
     }
 
     private ProductChipDTO toChip(Product p) {
+        // Fall back to the first product-level photo when nothing is flagged preview, so a product
+        // with images never renders "No image" on its card (owner 2026-07-22).
         String previewUrl = images.findFirstByProductIdAndPreviewTrue(p.getId())
+            .or(() -> images.findByProductIdOrderByDisplayOrderAsc(p.getId()).stream()
+                .filter(i -> i.getVariantId() == null).findFirst())
             .map(i -> i.getUrl()).orElse(null);
         boolean single = p.getPriceMode() == PriceMode.SINGLE;
         String avail;

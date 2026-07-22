@@ -136,6 +136,8 @@ public class AdminCatalogService {
 
     private AdminProductRowDTO toRow(Product p) {
         String previewUrl = images.findFirstByProductIdAndPreviewTrue(p.getId())
+            .or(() -> images.findByProductIdOrderByDisplayOrderAsc(p.getId()).stream()
+                .filter(i -> i.getVariantId() == null).findFirst())
             .map(i -> i.getUrl()).orElse(null);
         boolean single = p.getPriceMode() == PriceMode.SINGLE;
         return new AdminProductRowDTO(

@@ -23,12 +23,14 @@ class ImageProcessingTest {
     }
 
     @Test
-    void reencodesAValidImageToPng() throws Exception {
+    void reencodesAValidImageToJpeg() throws Exception {
         byte[] result = processing.validateAndReencode(tinyPng());
-        // PNG magic bytes (re-encoded → EXIF/polyglot stripped, T-21)
+        // JPEG magic bytes (re-encoded → EXIF/polyglot stripped, T-21). Output is JPEG (owner 2026-07-22)
+        // instead of PNG so photographic product shots are ~9× smaller on the storefront.
         assertThat(result).isNotEmpty();
-        assertThat(result[0] & 0xFF).isEqualTo(0x89);
-        assertThat(result[1]).isEqualTo((byte) 'P');
+        assertThat(result[0] & 0xFF).isEqualTo(0xFF);
+        assertThat(result[1] & 0xFF).isEqualTo(0xD8);
+        assertThat(processing.outputExtension()).isEqualTo("jpg");
     }
 
     @Test
