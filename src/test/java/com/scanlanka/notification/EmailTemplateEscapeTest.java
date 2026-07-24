@@ -31,6 +31,14 @@ class EmailTemplateEscapeTest {
         assertThat(email.body()).contains("&lt;img onerror=1&gt;");
     }
 
+    @Test
+    void adminEmailsIncludeCustomerPhone() {
+        // Scan Lanka must be able to phone the customer straight from the order email.
+        ReceiptModel model = sample("Jane Buyer", "x");
+        assertThat(templates.adminDispatch(model).body()).contains("Phone:").contains("0771234567");
+        assertThat(templates.orderPlacedAdmin(model).body()).contains("Phone:").contains("0771234567");
+    }
+
     private static ReceiptModel sample(String name, String subjectHint) {
         return new ReceiptModel(
             "SL-TEST", name, "a@x.lk", "0771234567", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
