@@ -46,6 +46,7 @@ public class EmailTemplateRenderer {
             <ul>%s</ul>
             <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
             %s
+            %s
             <p>Download your receipt PDF from your account or via <a href="%s" style="color:%s;">order lookup</a>.</p>
             """.formatted(
             HtmlEscaper.escape(m.contactName()),
@@ -56,6 +57,7 @@ public class EmailTemplateRenderer {
             lkr(m.taxCents()),
             lkr(m.totalCents()),
             codNote(m),
+            contactBlock(m),
             HtmlEscaper.escape(lookupUrl),
             BrandAssets.PRIMARY);
         return new RenderedEmail(subject, envelope("Order receipt", body));
@@ -81,6 +83,7 @@ public class EmailTemplateRenderer {
             <p>We've received your order <strong>%s</strong> — thank you!</p>
             <ul>%s</ul>
             <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
+            %s
             <p>If you're paying by bank transfer, please make sure you've uploaded your transfer slip so
             we can confirm your order. We'll email you again as soon as your payment is confirmed.</p>
             <p>You can track your order any time via <a href="%s" style="color:%s;">order lookup</a>.</p>
@@ -92,6 +95,7 @@ public class EmailTemplateRenderer {
             deliveryLine(m),
             lkr(m.taxCents()),
             lkr(m.totalCents()),
+            contactBlock(m),
             HtmlEscaper.escape(lookupUrl),
             BrandAssets.PRIMARY);
         return new RenderedEmail(subject, envelope("Order received", body));
@@ -114,7 +118,7 @@ public class EmailTemplateRenderer {
                 + " " + HtmlEscaper.escape(m.shipPostalCode());
         String body = """
             <p><strong>New order placed %s</strong> — awaiting payment confirmation.</p>
-            <p>Customer: %s (%s)<br/>Fulfilment: %s<br/>Payment: %s<br/>Delivery: %s</p>
+            <p>Customer: %s (%s)<br/>Phone: %s<br/>Fulfilment: %s<br/>Payment: %s<br/>Delivery: %s</p>
             <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%%;">
             <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Qty</th><th>Total</th></tr>
             %s</table>
@@ -124,6 +128,7 @@ public class EmailTemplateRenderer {
             HtmlEscaper.escape(m.orderNumber()),
             HtmlEscaper.escape(m.contactName()),
             HtmlEscaper.escape(m.contactEmail()),
+            HtmlEscaper.escape(nz(m.contactPhone())),
             HtmlEscaper.escape(m.fulfilmentType()),
             HtmlEscaper.escape(m.deliveryPayment()),
             ship,
@@ -152,7 +157,7 @@ public class EmailTemplateRenderer {
                 + " " + HtmlEscaper.escape(m.shipPostalCode());
         String body = """
             <p><strong>New order %s</strong></p>
-            <p>Customer: %s (%s)<br/>Fulfilment: %s<br/>Payment: %s / %s<br/>Delivery: %s</p>
+            <p>Customer: %s (%s)<br/>Phone: %s<br/>Fulfilment: %s<br/>Payment: %s / %s<br/>Delivery: %s</p>
             <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%%;">
             <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Handling</th><th>Qty</th><th>Total</th></tr>
             %s</table>
@@ -161,6 +166,7 @@ public class EmailTemplateRenderer {
             HtmlEscaper.escape(m.orderNumber()),
             HtmlEscaper.escape(m.contactName()),
             HtmlEscaper.escape(m.contactEmail()),
+            HtmlEscaper.escape(nz(m.contactPhone())),
             HtmlEscaper.escape(m.fulfilmentType()),
             HtmlEscaper.escape(m.paymentMethod()),
             HtmlEscaper.escape(m.deliveryPayment()),
@@ -238,6 +244,21 @@ public class EmailTemplateRenderer {
             return "Courier fee (approx., pay on delivery): " + lkr(m.courierEstimateCents());
         }
         return "Lorry delivery: " + lkr(m.deliveryCents());
+    }
+
+    /** "Deliver to" block for the customer emails: name, phone and shipping address incl. postal code. */
+    private static String contactBlock(ReceiptModel m) {
+        String addr = m.shipStreet() == null || m.shipStreet().isBlank()
+            ? "Address on file"
+            : HtmlEscaper.escape(m.shipStreet()) + ", " + HtmlEscaper.escape(nz(m.shipCity()))
+                + " " + HtmlEscaper.escape(nz(m.shipPostalCode()));
+        return "<p><strong>Deliver to:</strong> " + HtmlEscaper.escape(nz(m.contactName()))
+            + "<br/>Phone: " + HtmlEscaper.escape(nz(m.contactPhone()))
+            + "<br/>" + addr + "</p>";
+    }
+
+    private static String nz(String s) {
+        return s == null || s.isBlank() ? "—" : s;
     }
 
     private static String codNote(ReceiptModel m) {

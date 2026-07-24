@@ -7,6 +7,7 @@ public record ReceiptModel(
     String orderNumber,
     String contactName,
     String contactEmail,
+    String contactPhone,
     String fulfilmentType,
     String deliveryMethod,       // "COMPANY_LORRY" | "COURIER" (17) - which rail, not who pays
     String deliveryPayment,

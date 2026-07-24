@@ -58,7 +58,7 @@ public class ReceiptHtmlRenderer {
               </div>
               <h1>%s</h1>
               <p class="muted">Order <strong>%s</strong></p>
-              <p>%s<br/>%s</p>
+              <p>%s<br/>%s<br/>Phone: %s</p>
               %s
               <p><strong>Fulfilment:</strong> %s · <strong>Payment:</strong> %s (%s)</p>
               %s
@@ -90,6 +90,7 @@ public class ReceiptHtmlRenderer {
             HtmlEscaper.escape(m.orderNumber()),
             HtmlEscaper.escape(m.contactName()),
             HtmlEscaper.escape(m.contactEmail()),
+            HtmlEscaper.escape(nullToDash(m.contactPhone())),
             billing,
             HtmlEscaper.escape(m.fulfilmentType()),
             HtmlEscaper.escape(m.paymentMethod()),

@@ -46,7 +46,7 @@ public class ReceiptService {
                 i.getQuantity(), i.getUnitPriceCents(), i.getLineTotalCents()))
             .toList();
         return new ReceiptModel(
-            order.getOrderNumber(), order.getContactName(), order.getContactEmail(),
+            order.getOrderNumber(), order.getContactName(), order.getContactEmail(), order.getContactPhone(),
             order.getFulfilmentType().name(), order.getDeliveryMethod(), order.getDeliveryPayment().name(),
             paymentMethod(order),
             order.getShipStreet(), order.getShipCity(), order.getShipProvince(), order.getShipPostalCode(),

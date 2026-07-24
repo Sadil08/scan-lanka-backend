@@ -33,7 +33,7 @@ class EmailTemplateEscapeTest {
 
     private static ReceiptModel sample(String name, String subjectHint) {
         return new ReceiptModel(
-            "SL-TEST", name, "a@x.lk", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
+            "SL-TEST", name, "a@x.lk", "0771234567", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
             "1 Main St", "Colombo", "WP", "00100",
             null, null, null, null, null, null,
             1000, 200, 50, 1250, 0, 0,

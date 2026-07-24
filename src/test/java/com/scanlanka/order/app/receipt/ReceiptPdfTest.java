@@ -14,7 +14,7 @@ class ReceiptPdfTest {
     void rendersValidPdfBytes() {
         // Every order is delivered - pickup was removed (17) - so a real ship address, not null.
         ReceiptModel model = new ReceiptModel(
-            "SL-ABC123", "Customer", "c@x.lk", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
+            "SL-ABC123", "Customer", "c@x.lk", "0771234567", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
             "1 Main St", "Colombo", "Western", "00200",
             "Biz Ltd", "VAT123", "Bill St", "City", "WP", "00200",
             5000, 800, 250, 6050, 0, 0,
@@ -28,7 +28,7 @@ class ReceiptPdfTest {
     @Test
     void courierOrderShowsEstimateAndApproxDoorTotal() {
         ReceiptModel model = new ReceiptModel(
-            "SL-CUR001", "Customer", "c@x.lk", "DELIVERY", "COURIER", "COD", "COD",
+            "SL-CUR001", "Customer", "c@x.lk", "0771234567", "DELIVERY", "COURIER", "COD", "COD",
             "1 Main St", "Kandy", "Central", "20000",
             null, null, null, null, null, null,
             5000, 0, 0, 0, 0, 1500,
@@ -42,7 +42,7 @@ class ReceiptPdfTest {
     @Test
     void lorryCodOrderShowsFeeAndCashOnDeliveryTotal() {
         ReceiptModel model = new ReceiptModel(
-            "SL-LCD001", "Customer", "c@x.lk", "DELIVERY", "COMPANY_LORRY", "COD", "COD",
+            "SL-LCD001", "Customer", "c@x.lk", "0771234567", "DELIVERY", "COMPANY_LORRY", "COD", "COD",
             "1 Main St", "Colombo", "Western", "00100",
             null, null, null, null, null, null,
             5000, 800, 0, 0, 5800, 0,
