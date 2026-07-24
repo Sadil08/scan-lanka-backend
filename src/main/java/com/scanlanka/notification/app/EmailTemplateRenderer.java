@@ -44,7 +44,7 @@ public class EmailTemplateRenderer {
             <p>Hi %s,</p>
             <p>Thank you for your order <strong>%s</strong>.</p>
             <ul>%s</ul>
-            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Paid online: %s</strong></p>
+            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
             %s
             <p>Download your receipt PDF from your account or via <a href="%s" style="color:%s;">order lookup</a>.</p>
             """.formatted(
@@ -59,6 +59,78 @@ public class EmailTemplateRenderer {
             HtmlEscaper.escape(lookupUrl),
             BrandAssets.PRIMARY);
         return new RenderedEmail(subject, envelope("Order receipt", body));
+    }
+
+    /**
+     * Buyer "we've received your order" email, sent the moment a non-COD order is placed (owner
+     * 2026-07-23) — before payment is confirmed. Itemises name(+size)/qty/price so the buyer has a
+     * record immediately, and nudges the bank-transfer slip. The confirmed receipt (with PDF) still
+     * follows once payment lands.
+     */
+    public RenderedEmail orderPlacedCustomer(ReceiptModel m, String lookupUrl) {
+        String subject = HtmlEscaper.subject("We've received your order — " + m.orderNumber());
+        StringBuilder lines = new StringBuilder();
+        for (ReceiptModel.Line line : m.lines()) {
+            lines.append("<li>").append(HtmlEscaper.escape(line.name()))
+                .append(" (").append(HtmlEscaper.escape(line.sku())).append(") × ")
+                .append(line.quantity()).append(" — ")
+                .append(lkr(line.lineTotalCents())).append("</li>");
+        }
+        String body = """
+            <p>Hi %s,</p>
+            <p>We've received your order <strong>%s</strong> — thank you!</p>
+            <ul>%s</ul>
+            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
+            <p>If you're paying by bank transfer, please make sure you've uploaded your transfer slip so
+            we can confirm your order. We'll email you again as soon as your payment is confirmed.</p>
+            <p>You can track your order any time via <a href="%s" style="color:%s;">order lookup</a>.</p>
+            """.formatted(
+            HtmlEscaper.escape(m.contactName()),
+            HtmlEscaper.escape(m.orderNumber()),
+            lines,
+            lkr(m.subtotalCents()),
+            deliveryLine(m),
+            lkr(m.taxCents()),
+            lkr(m.totalCents()),
+            HtmlEscaper.escape(lookupUrl),
+            BrandAssets.PRIMARY);
+        return new RenderedEmail(subject, envelope("Order received", body));
+    }
+
+    /** Scan Lanka "new order placed" alert, sent at placement of a non-COD order (owner 2026-07-23). */
+    public RenderedEmail orderPlacedAdmin(ReceiptModel m) {
+        String subject = HtmlEscaper.subject("New order placed — " + m.orderNumber());
+        StringBuilder lines = new StringBuilder();
+        for (ReceiptModel.Line line : m.lines()) {
+            lines.append("<tr><td>").append(HtmlEscaper.escape(line.sku()))
+                .append("</td><td>").append(HtmlEscaper.escape(line.name()))
+                .append("</td><td>").append(line.quantity())
+                .append("</td><td>").append(lkr(line.lineTotalCents()))
+                .append("</td></tr>");
+        }
+        String ship = m.shipStreet() == null || m.shipStreet().isBlank()
+            ? "No address on file"
+            : HtmlEscaper.escape(m.shipStreet()) + ", " + HtmlEscaper.escape(m.shipCity())
+                + " " + HtmlEscaper.escape(m.shipPostalCode());
+        String body = """
+            <p><strong>New order placed %s</strong> — awaiting payment confirmation.</p>
+            <p>Customer: %s (%s)<br/>Fulfilment: %s<br/>Payment: %s<br/>Delivery: %s</p>
+            <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%%;">
+            <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Qty</th><th>Total</th></tr>
+            %s</table>
+            <p>Order total: <strong>%s</strong></p>
+            <p>The customer pays by bank transfer — review their slip in the admin panel to confirm.</p>
+            """.formatted(
+            HtmlEscaper.escape(m.orderNumber()),
+            HtmlEscaper.escape(m.contactName()),
+            HtmlEscaper.escape(m.contactEmail()),
+            HtmlEscaper.escape(m.fulfilmentType()),
+            HtmlEscaper.escape(m.deliveryPayment()),
+            ship,
+            BrandAssets.PRIMARY_LIGHT, BrandAssets.PRIMARY_DARK,
+            lines,
+            lkr(m.totalCents()));
+        return new RenderedEmail(subject, envelope("New order placed", body));
     }
 
     public RenderedEmail adminDispatch(ReceiptModel m) {

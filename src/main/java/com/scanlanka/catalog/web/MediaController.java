@@ -40,6 +40,7 @@ public class MediaController {
             case "png" -> MediaType.IMAGE_PNG;
             case "gif" -> MediaType.IMAGE_GIF;
             case "webp" -> MediaType.parseMediaType("image/webp");
+            case "pdf" -> MediaType.APPLICATION_PDF;  // bank-transfer slips — admins view inline
             default -> MediaType.APPLICATION_OCTET_STREAM;
         };
     }

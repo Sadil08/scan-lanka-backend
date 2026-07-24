@@ -25,22 +25,26 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class BankTransferService {
 
+    private static final long MAX_PDF_BYTES = 5L * 1024 * 1024; // match ImageProcessing's image cap
+
     private final OrderRepository orders;
     private final PaymentRepository payments;
     private final BankTransferSlipRepository slips;
     private final ImageProcessing imageProcessing;
+    private final PdfCompressor pdfCompressor;
     private final ImageStorage imageStorage;
     private final OrderService orderService;
     private final OrderFulfilmentConfirmer confirmer;
 
     public BankTransferService(OrderRepository orders, PaymentRepository payments,
                                BankTransferSlipRepository slips, ImageProcessing imageProcessing,
-                               ImageStorage imageStorage, OrderService orderService,
-                               OrderFulfilmentConfirmer confirmer) {
+                               PdfCompressor pdfCompressor, ImageStorage imageStorage,
+                               OrderService orderService, OrderFulfilmentConfirmer confirmer) {
         this.orders = orders;
         this.payments = payments;
         this.slips = slips;
         this.imageProcessing = imageProcessing;
+        this.pdfCompressor = pdfCompressor;
         this.imageStorage = imageStorage;
         this.orderService = orderService;
         this.confirmer = confirmer;
@@ -59,9 +63,22 @@ public class BankTransferService {
             && order.getStatus() != OrderStatus.BANK_SLIP_REJECTED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ORDER_NOT_AWAITING_SLIP");
         }
-        byte[] png = imageProcessing.validateAndReencode(fileBytes);        // hardened (T-6)
         String hash = Hashing.sha256Hex(fileBytes);                         // duplicate-slip flag (T-1b)
-        ImageStorage.StoredImage stored = imageStorage.store(png, imageProcessing.outputExtension());
+        // Slips may be a PDF or an image. PDFs are rasterized (compressed + de-fanged); images are
+        // validated, downscaled and re-encoded. Both are hardened — we never store raw uploaded bytes.
+        byte[] processed;
+        String extension;
+        if (isPdf(fileBytes)) {
+            if (fileBytes.length > MAX_PDF_BYTES) {
+                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE");
+            }
+            processed = pdfCompressor.compress(fileBytes);
+            extension = "pdf";
+        } else {
+            processed = imageProcessing.validateAndReencode(fileBytes);     // hardened (T-6) + downscaled
+            extension = imageProcessing.outputExtension();
+        }
+        ImageStorage.StoredImage stored = imageStorage.store(processed, extension);
 
         Payment payment = payments.findByOrderId(order.getId()).orElseGet(() -> payments.save(
             new Payment(order.getId(), Payment.Method.BANK_TRANSFER,
@@ -74,6 +91,11 @@ public class BankTransferService {
             orderService.transition(order.getId(), OrderStatus.AWAITING_BANK_CONFIRMATION,
                 ActorType.CUSTOMER, order.getCustomerId(), "bank slip uploaded");
         }
+    }
+
+    /** Magic-byte sniff for a PDF (%PDF-), not the client-supplied content type. */
+    private static boolean isPdf(byte[] b) {
+        return b.length >= 5 && b[0] == '%' && b[1] == 'P' && b[2] == 'D' && b[3] == 'F' && b[4] == '-';
     }
 
     /**

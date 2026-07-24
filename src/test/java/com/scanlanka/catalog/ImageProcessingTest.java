@@ -34,6 +34,18 @@ class ImageProcessingTest {
     }
 
     @Test
+    void downscalesLargeImagesToMaxEdge() throws Exception {
+        BufferedImage big = new BufferedImage(4000, 3000, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(big, "png", out);
+        byte[] result = processing.validateAndReencode(out.toByteArray());
+        BufferedImage decoded = ImageIO.read(new java.io.ByteArrayInputStream(result));
+        assertThat(Math.max(decoded.getWidth(), decoded.getHeight())).isEqualTo(1600); // capped long edge
+        assertThat(decoded.getWidth()).isEqualTo(1600);
+        assertThat(decoded.getHeight()).isEqualTo(1200); // aspect preserved
+    }
+
+    @Test
     void rejectsNonImageBytes() {
         assertThatThrownBy(() -> processing.validateAndReencode("not an image, just text".getBytes()))
             .isInstanceOf(ResponseStatusException.class)
