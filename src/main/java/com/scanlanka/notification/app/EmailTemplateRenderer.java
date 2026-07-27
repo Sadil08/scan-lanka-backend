@@ -64,10 +64,8 @@ public class EmailTemplateRenderer {
     }
 
     /**
-     * Buyer "we've received your order" email, sent the moment a non-COD order is placed (owner
-     * 2026-07-23) — before payment is confirmed. Itemises name(+size)/qty/price so the buyer has a
-     * record immediately, and nudges the bank-transfer slip. The confirmed receipt (with PDF) still
-     * follows once payment lands.
+     * Buyer "we've received your order" template (kept for possible bank-transfer-only use).
+     * Not sent on PayHere placement anymore — buyers get the receipt email after payment confirms.
      */
     public RenderedEmail orderPlacedCustomer(ReceiptModel m, String lookupUrl) {
         String subject = HtmlEscaper.subject("We've received your order — " + m.orderNumber());
@@ -123,7 +121,7 @@ public class EmailTemplateRenderer {
             <tr style="background:%s;color:%s;"><th>SKU</th><th>Item</th><th>Qty</th><th>Total</th></tr>
             %s</table>
             <p>Order total: <strong>%s</strong></p>
-            <p>The customer pays by bank transfer — review their slip in the admin panel to confirm.</p>
+            <p>Awaiting online payment (PayHere) or bank-slip confirmation.</p>
             """.formatted(
             HtmlEscaper.escape(m.orderNumber()),
             HtmlEscaper.escape(m.contactName()),

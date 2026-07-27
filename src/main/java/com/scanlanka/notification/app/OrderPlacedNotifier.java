@@ -12,14 +12,13 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Emails the buyer and Scan Lanka the moment an order is placed (owner 2026-07-23). Runs synchronously
- * inside the placing transaction on {@link OrderPlacedEvent}.
+ * Alerts Scan Lanka when a prepaid order is placed (still PENDING_PAYMENT). Runs synchronously inside
+ * the placing transaction on {@link OrderPlacedEvent}.
  *
- * <p>Keyed on {@code deliveryPayment != COD}: COD orders are confirmed at placement and already emailed
- * via the confirmation path ({@link OrderNotificationComposer#onOrderConfirmed}), so sending here too
- * would double up. Non-COD orders (lorry-online, bank transfer, PayHere) sit PENDING_PAYMENT and would
- * otherwise get nothing until payment is confirmed — this is the gap we close. Deterministic regardless
- * of listener ordering because it depends only on the order's own payment choice, not its live status.
+ * <p>Keyed on {@code deliveryPayment != COD}: COD is confirmed at placement and already emails the
+ * buyer via {@link OrderNotificationComposer#onOrderConfirmed}. Buyers on PayHere/bank transfer are
+ * emailed only after payment is confirmed — not at placement — so checkout is not interrupted by a
+ * premature "order received" mail.
  */
 @Component
 public class OrderPlacedNotifier {

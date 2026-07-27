@@ -31,19 +31,13 @@ public class OrderNotificationComposer {
     }
 
     /**
-     * Fired the moment a non-COD order is placed (owner 2026-07-23): the buyer gets an "order received"
-     * email and Scan Lanka gets a "new order" alert, both itemised (name+size / qty / price). COD orders
-     * are confirmed at placement and covered by {@link #onOrderConfirmed}, so this path is skipped for
-     * them (see OrderPlacedNotifier) to avoid a double email.
+     * Fired when a non-COD order is placed (PayHere / bank transfer still PENDING_PAYMENT).
+     * Only alerts Scan Lanka — the buyer is emailed after payment is confirmed
+     * ({@link #onOrderConfirmed}), so they do not get an "order received" mail while still on
+     * the PayHere card page. COD is skipped here (see OrderPlacedNotifier).
      */
     public void onOrderPlaced(Order order, List<OrderItem> items) {
         ReceiptModel model = receipts.buildModel(order, items);
-
-        String lookupUrl = frontendBaseUrl + "/orders/lookup";
-        EmailTemplateRenderer.RenderedEmail customer = templates.orderPlacedCustomer(model, lookupUrl);
-        notifications.enqueue("ORDER_PLACED", order.getContactEmail(), customer.subject(), customer.body(),
-            "placed-customer:" + order.getId());
-
         EmailTemplateRenderer.RenderedEmail admin = templates.orderPlacedAdmin(model);
         notifications.enqueue("ADMIN_ORDER_PLACED", adminEmail, admin.subject(), admin.body(),
             "placed-admin:" + order.getId());
