@@ -38,11 +38,14 @@ public class OrderFulfilmentConfirmer {
         this.orderNotifications = orderNotifications;
     }
 
-    /** @return true if it confirmed (was pending); false if already confirmed (idempotent no-op). */
+    /** @return true if it confirmed (was pending/cancelled-awaiting-notify); false if already confirmed. */
     @Transactional
     public boolean confirmPaidAndDecrement(Order order, ActorType actorType, Long actorId, String note) {
         OrderStatus from = order.getStatus();
-        if (from != OrderStatus.PENDING_PAYMENT && from != OrderStatus.AWAITING_BANK_CONFIRMATION) {
+        // CANCELLED is allowed so a delayed PayHere notify after auto-cancel still fulfils a real payment.
+        if (from != OrderStatus.PENDING_PAYMENT
+            && from != OrderStatus.AWAITING_BANK_CONFIRMATION
+            && from != OrderStatus.CANCELLED) {
             return false;
         }
         OrderStatus target = order.getDeliveryPayment() == DeliveryPayment.COD

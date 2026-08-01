@@ -108,6 +108,8 @@ app:
     notify-url: ${PAYHERE_NOTIFY_URL:http://localhost:8080/api/payments/payhere/notify}
     return-url: ${PAYHERE_RETURN_URL:http://localhost:3000/checkout/return}
     cancel-url: ${PAYHERE_CANCEL_URL:http://localhost:3000/checkout}
+    abandon-ttl-minutes: ${PAYHERE_ABANDON_TTL_MINUTES:60}   # auto-cancel unpaid CARD attempts
+    abandon-sweep-ms: ${PAYHERE_ABANDON_SWEEP_MS:120000}
   auth:
     # Dev-only default (>= 32 bytes for HS256). MUST be overridden by env in every real environment.
     jwt-secret: ${JWT_SECRET:dev-only-change-me-please-rotate-32+bytes-secret}

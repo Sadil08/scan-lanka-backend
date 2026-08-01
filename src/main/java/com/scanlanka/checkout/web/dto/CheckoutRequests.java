@@ -27,6 +27,7 @@ public final class CheckoutRequests {
         List<ItemDTO> items,
         @NotBlank String deliveryMethod,
         String paymentChoice,                 // ONLINE | COD; null ⇒ ONLINE (lorry). Courier is always COD.
+        String paymentMethod,                 // CARD | BANK when paying online; ignored for COD
         AddressDTO ship,
         BillingDTO billing,
         @NotBlank String contactName,

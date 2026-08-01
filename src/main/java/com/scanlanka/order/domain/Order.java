@@ -65,6 +65,10 @@ public class Order {
     private DeliveryPayment deliveryPayment = DeliveryPayment.PREPAID;
     @Column(name = "delivery_cod_cents", nullable = false) private long deliveryCodCents;
 
+    /** Intended online instrument: CARD (PayHere) or BANK (slip). Null for COD. */
+    @Column(name = "payment_method", length = 10)
+    private String paymentMethod;
+
     @Column(name = "actual_delivery_cents") private Long actualDeliveryCents;
     @Column(name = "delivery_courier") private String deliveryCourier;
 
@@ -144,6 +148,8 @@ public class Order {
     }
     public void setDeliveryPayment(DeliveryPayment dp) { this.deliveryPayment = dp; }
     public void setDeliveryCodCents(long v) { this.deliveryCodCents = v; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getDeliveryMethod() { return deliveryMethod; }
     public void setDeliveryMethod(String deliveryMethod) { this.deliveryMethod = deliveryMethod; }
     public long getCourierEstimateCents() { return courierEstimateCents; }

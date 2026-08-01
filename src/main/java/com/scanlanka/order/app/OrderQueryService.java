@@ -2,6 +2,7 @@ package com.scanlanka.order.app;
 
 import com.scanlanka.order.domain.Order;
 import com.scanlanka.order.domain.OrderItem;
+import com.scanlanka.order.domain.OrderStatus;
 import com.scanlanka.order.domain.OrderStatusEvent;
 import com.scanlanka.order.infra.OrderItemRepository;
 import com.scanlanka.order.infra.OrderRepository;
@@ -43,9 +44,17 @@ public class OrderQueryService {
     @Transactional(readOnly = true)
     public List<OrderSummaryView> listForCustomer(long customerId) {
         return orders.findByCustomerIdOrderByCreatedAtDesc(customerId).stream()
+            // Hide in-flight / failed PayHere attempts until payment succeeds (or auto-cancel).
+            .filter(o -> !isUnpaidCardAttempt(o))
             .map(o -> new OrderSummaryView(o.getOrderNumber(), o.getStatus().name(),
                 o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getCreatedAt()))
             .toList();
+    }
+
+    private static boolean isUnpaidCardAttempt(Order o) {
+        if (!"CARD".equalsIgnoreCase(o.getPaymentMethod())) return false;
+        return o.getStatus() == OrderStatus.PENDING_PAYMENT
+            || o.getStatus() == OrderStatus.PAYMENT_FAILED;
     }
 
     @Transactional(readOnly = true)

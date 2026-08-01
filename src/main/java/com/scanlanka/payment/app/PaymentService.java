@@ -115,7 +115,10 @@ public class PaymentService {
         }
 
         if ("2".equals(n.statusCode())) {                       // PayHere success
-            if (confirmer.confirmPaidAndDecrement(order, ActorType.SYSTEM, null, "PayHere notify")) {
+            String note = order.getStatus() == OrderStatus.CANCELLED
+                ? "PayHere notify after auto-cancel — order revived"
+                : "PayHere notify";
+            if (confirmer.confirmPaidAndDecrement(order, ActorType.SYSTEM, null, note)) {
                 payments.findByOrderId(order.getId()).ifPresent(p -> {
                     p.markPaid(n.paymentId(), n.statusCode());
                     payments.save(p);

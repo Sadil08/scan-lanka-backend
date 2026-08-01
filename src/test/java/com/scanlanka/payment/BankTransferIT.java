@@ -49,7 +49,8 @@ class BankTransferIT extends AbstractIntegrationTest {
     private String place(Long productId) throws Exception {
         MvcResult res = mvc.perform(post("/api/checkout").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"items\":[{\"productId\":" + productId + ",\"quantity\":1}],"
-                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
+                    + "\"deliveryMethod\":\"COMPANY_LORRY\",\"paymentMethod\":\"BANK\","
+                    + "\"ship\":{\"street\":\"1 Main\",\"city\":\"Colombo\",\"province\":\"Western\",\"postalCode\":\"00100\"},"
                     + "\"contactName\":\"M\",\"contactPhone\":\"+9477\",\"contactEmail\":\"m@x.lk\"}"))
             .andExpect(status().isOk()).andReturn();
         return objectMapper.readTree(res.getResponse().getContentAsString()).get("orderNumber").asText();

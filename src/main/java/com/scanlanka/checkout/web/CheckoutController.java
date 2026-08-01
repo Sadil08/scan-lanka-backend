@@ -58,7 +58,8 @@ public class CheckoutController {
         PlaceInput input = new PlaceInput(toItems(req.items()), method(req.deliveryMethod()),
             paymentChoice(req.paymentChoice()), ship, billing,
             req.contactName(), req.contactPhone(), req.contactEmail(),
-            customerId, customerId == null ? req.contactEmail() : null);
+            customerId, customerId == null ? req.contactEmail() : null,
+            req.paymentMethod());
         return checkout.place(input);
     }
 

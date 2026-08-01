@@ -27,6 +27,12 @@ class OrderStateMachineTest {
     }
 
     @Test
+    void cancelledMayReviveToPaidForDelayedNotify() {
+        assertThat(OrderStateMachine.canTransition(CANCELLED, PAID)).isTrue();
+        assertThat(OrderStateMachine.canTransition(CANCELLED, PACKED)).isFalse();
+    }
+
+    @Test
     void terminalStatesHaveNoTransitions() {
         assertThat(OrderStateMachine.isTerminal(COMPLETED)).isTrue();
         assertThat(OrderStateMachine.isTerminal(CANCELLED)).isTrue();

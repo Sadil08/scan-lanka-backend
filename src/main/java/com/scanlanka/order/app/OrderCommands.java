@@ -25,5 +25,6 @@ public final class OrderCommands {
         List<LineSnapshot> lines,
         long subtotalCents, long discountCents, long deliveryCents, long taxCents, long totalCents,
         DeliveryPayment deliveryPayment, long deliveryCodCents,
-        String deliveryMethod, long courierEstimateCents, boolean deliveryArranged) {}
+        String deliveryMethod, long courierEstimateCents, boolean deliveryArranged,
+        String paymentMethod) {}
 }

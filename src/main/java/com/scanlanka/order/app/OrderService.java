@@ -57,6 +57,7 @@ public class OrderService {
         order.setDeliveryMethod(cmd.deliveryMethod());
         order.setCourierEstimateCents(cmd.courierEstimateCents());
         order.setDeliveryArranged(cmd.deliveryArranged());
+        order.setPaymentMethod(cmd.paymentMethod());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         order = orders.save(order);
 

@@ -100,7 +100,7 @@ class CheckoutServiceTest {
 
         var placed = checkout.place(new PlaceInput(List.of(new ItemInput(1L, null, 2)),
             DeliveryMethod.COMPANY_LORRY, null /* paymentChoice ⇒ ONLINE */, null, null,
-            "Buyer", "0770000000", "buyer@example.com", null, "buyer@example.com"));
+            "Buyer", "0770000000", "buyer@example.com", null, "buyer@example.com", "CARD"));
 
         assertThat(placed.orderNumber()).isEqualTo("SL-TEST-1");
 

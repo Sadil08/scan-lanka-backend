@@ -70,7 +70,7 @@ public class CheckoutService {
     public record PlaceInput(List<ItemInput> items, DeliveryMethod deliveryMethod, PaymentChoice paymentChoice,
                              OrderCommands.Address ship, OrderCommands.Billing billing,
                              String contactName, String contactPhone, String contactEmail,
-                             Long customerId, String guestEmail) {}
+                             Long customerId, String guestEmail, String paymentMethod) {}
 
     public record Placed(String orderNumber, long onlineTotalCents) {}
 
@@ -166,13 +166,17 @@ public class CheckoutService {
         long onlineTotal = cod ? 0 : doorTotal;
         long codCents = (lorry && cod) ? doorTotal : 0;   // cash the driver collects (0 for courier)
 
+        // CARD | BANK for prepaid online; null for COD (nothing charged online).
+        String paymentMethod = cod ? null : normalizePaymentMethod(in.paymentMethod());
+
         CreateOrderCommand cmd = new CreateOrderCommand(
             in.customerId(), in.guestEmail(),
             in.contactName(), in.contactPhone(), in.contactEmail(),
             FulfilmentType.DELIVERY, in.ship(), in.billing(), snapshots,
             q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), onlineTotal,
             payment, codCents,
-            in.deliveryMethod().name(), q.courierEstimateCents(), q.someArranged());
+            in.deliveryMethod().name(), q.courierEstimateCents(), q.someArranged(),
+            paymentMethod);
         Order order = orderService.createDraft(cmd);
         reservations.reserveForOrder(order.getId(), snapshots);
         // Synchronous, in-transaction: any COD order (courier OR lorry-COD) is confirmed + stock-decremented
@@ -226,6 +230,14 @@ public class CheckoutService {
 
     private int loadTaxRateBps() {
         return taxConfigs.findFirstByOrderByIdAsc().map(TaxConfig::getRateBps).orElse(0);
+    }
+
+    /** CARD | BANK for prepaid; blank/null defaults to CARD (PayHere) so older clients still work. */
+    private static String normalizePaymentMethod(String raw) {
+        if (raw == null || raw.isBlank()) return "CARD";
+        String v = raw.trim().toUpperCase();
+        if ("CARD".equals(v) || "BANK".equals(v)) return v;
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_PAYMENT_METHOD");
     }
 
     private static ResponseStatusException badRequest(String code) {

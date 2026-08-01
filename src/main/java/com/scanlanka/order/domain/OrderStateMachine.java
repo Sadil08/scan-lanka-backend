@@ -26,7 +26,8 @@ public final class OrderStateMachine {
         ALLOWED.put(READY_FOR_PICKUP, Set.of(COMPLETED, CANCELLED));
         ALLOWED.put(DELIVERY_FAILED, Set.of(SHIPPED, CANCELLED));
         ALLOWED.put(COMPLETED, Set.of());   // terminal
-        ALLOWED.put(CANCELLED, Set.of());   // terminal
+        // Cancelled is normally terminal, but a delayed PayHere success after auto-cancel must revive.
+        ALLOWED.put(CANCELLED, Set.of(PAID));
     }
 
     private OrderStateMachine() {}
@@ -36,6 +37,8 @@ public final class OrderStateMachine {
     }
 
     public static boolean isTerminal(OrderStatus status) {
-        return ALLOWED.getOrDefault(status, Set.of()).isEmpty();
+        // CANCELLED allows a one-way revive to PAID for delayed PayHere notifies, but is still
+        // treated as terminal for UI / "no further customer action" purposes.
+        return status == COMPLETED || status == CANCELLED;
     }
 }

@@ -31,10 +31,9 @@ public class OrderNotificationComposer {
     }
 
     /**
-     * Fired when a non-COD order is placed (PayHere / bank transfer still PENDING_PAYMENT).
-     * Only alerts Scan Lanka — the buyer is emailed after payment is confirmed
-     * ({@link #onOrderConfirmed}), so they do not get an "order received" mail while still on
-     * the PayHere card page. COD is skipped here (see OrderPlacedNotifier).
+     * Fired when a non-COD prepaid order is placed (bank transfer still PENDING_PAYMENT).
+     * PayHere (CARD) placements skip this — see OrderPlacedNotifier. The buyer is emailed after
+     * payment is confirmed ({@link #onOrderConfirmed}). COD is skipped here too.
      */
     public void onOrderPlaced(Order order, List<OrderItem> items) {
         ReceiptModel model = receipts.buildModel(order, items);

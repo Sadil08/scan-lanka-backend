@@ -29,9 +29,8 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true)
     public DashboardView dashboard() {
-        long pending = orders.countByStatus(OrderStatus.PENDING_PAYMENT)
-            + orders.countByStatus(OrderStatus.PAYMENT_FAILED)
-            + orders.countByStatus(OrderStatus.BANK_SLIP_REJECTED);
+        long pending = orders.countByStatusInExcludingCard(List.of(
+                OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_FAILED, OrderStatus.BANK_SLIP_REJECTED));
         long awaitingBank = orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION);
         long paid = orders.countByStatus(OrderStatus.PAID)
             + orders.countByStatus(OrderStatus.CONFIRMED);

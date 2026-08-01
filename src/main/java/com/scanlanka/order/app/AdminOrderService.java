@@ -140,7 +140,7 @@ public class AdminOrderService {
     @Transactional(readOnly = true)
     public DashboardCounts dashboardCounts() {
         return new DashboardCounts(
-            orders.countByStatus(OrderStatus.PENDING_PAYMENT),
+            orders.countByStatusExcludingCard(OrderStatus.PENDING_PAYMENT),
             orders.countByStatus(OrderStatus.AWAITING_BANK_CONFIRMATION),
             orders.countByStatus(OrderStatus.PAID),
             orders.countByStatus(OrderStatus.COMPLETED));
@@ -169,10 +169,28 @@ public class AdminOrderService {
 
     private Specification<Order> boardSpec(String view, String q, Instant from, Instant to) {
         List<Specification<Order>> parts = new ArrayList<>();
-        List<OrderStatus> statuses = statusesForView(view);
-        if (statuses != null) {
-            parts.add((root, query, cb) -> root.get("status").in(statuses));
+        String normalized = view == null || view.isBlank() ? "all" : view.toLowerCase();
+
+        if ("unpaid".equals(normalized)) {
+            // Abandoned / in-flight PayHere attempts only.
+            parts.add((root, query, cb) -> cb.and(
+                root.get("status").in(OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_FAILED),
+                cb.equal(root.get("paymentMethod"), "CARD")));
+        } else {
+            List<OrderStatus> statuses = statusesForView(normalized);
+            if (statuses != null) {
+                parts.add((root, query, cb) -> root.get("status").in(statuses));
+            }
+            // Hide unpaid CARD attempts from the main board ("all" and "pending_payment").
+            // They live under the "unpaid" view until paid or auto-cancelled.
+            if ("all".equals(normalized) || "pending_payment".equals(normalized)) {
+                parts.add((root, query, cb) -> cb.or(
+                    cb.not(root.get("status").in(OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_FAILED)),
+                    cb.isNull(root.get("paymentMethod")),
+                    cb.notEqual(root.get("paymentMethod"), "CARD")));
+            }
         }
+
         if (q != null && !q.isBlank()) {
             String like = "%" + q.toLowerCase().trim() + "%";
             parts.add((root, query, cb) -> cb.or(

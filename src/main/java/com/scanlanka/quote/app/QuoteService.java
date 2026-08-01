@@ -250,7 +250,7 @@ public class QuoteService {
             q.getRequesterName(), q.getPhone(), q.getEmail(),
             FulfilmentType.DELIVERY, null, null, snapshots,
             total, 0, 0, 0, total, DeliveryPayment.PREPAID, 0,
-            null, 0, false);
+            null, 0, false, null);
         Order order = orderService.createDraft(cmd);
         q.setConvertedOrderId(order.getId());
         quotes.save(q);
