@@ -21,8 +21,10 @@ public final class ProductResponses {
 
     public record VariantDTO(long id, String sku, long priceCents, String optionsSignature, String availability) {}
 
+    /** {@code weightKg} drives the Domex weight rate (V48); null ⇒ the courier bills it as 1 kg. */
     public record DeliveryAttrsDTO(
         String boardSizeTier,
+        java.math.BigDecimal weightKg,
         Long lorryColomboCents, Long lorrySuburbCents, Long lorryOuterCents,
         Long lorryColomboGateCents, Long lorrySuburbGateCents, Long lorryOuterGateCents,
         boolean lorryColomboEnabled, boolean lorrySuburbEnabled, boolean lorryOuterEnabled,

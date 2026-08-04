@@ -1,6 +1,8 @@
 package com.scanlanka.catalog.web.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Positive;
@@ -9,6 +11,7 @@ import jakarta.validation.constraints.Size;
 
 import com.scanlanka.checkout.domain.BoardSizeTier;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /** Admin product create/upsert DTOs (01-product-catalog §3). Strict validation (global/02 §4). */
@@ -21,9 +24,15 @@ public final class ProductRequests {
      * Set on the product (defaults) or per variant (per size). Per zone: an enabled switch (null ⇒ true),
      * an optional price, and an optional min-bill gate. Blank price + no gate = lorry offered, admin
      * arranges the cost manually; gate with no price = the zone's flat gate-met charge when met.
+     *
+     * <p>{@code weightKg} drives the Domex courier charge (V48 weight rate: first kg + additional kgs)
+     * and is loosely coupled like the lorry cells — set per size on a variant-priced product, on the
+     * product itself for a single-priced one; a variant without its own weight falls back to the
+     * product's. Null is allowed but bills as 1 kg, so an item with the courier ON should carry one.
      */
     public record DeliveryAttrs(
         BoardSizeTier boardSizeTier,                         // null ⇒ not couriable (lorry-only item)
+        @DecimalMin("0") @Digits(integer = 7, fraction = 3) BigDecimal weightKg,  // null ⇒ billed as 1 kg
         @PositiveOrZero Long lorryColomboCents,
         @PositiveOrZero Long lorrySuburbCents,
         @PositiveOrZero Long lorryOuterCents,

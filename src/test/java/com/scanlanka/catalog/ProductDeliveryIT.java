@@ -77,6 +77,51 @@ class ProductDeliveryIT extends AbstractIntegrationTest {
         assertThat(reloaded.getBoardSizeTier()).isEqualTo(BoardSizeTier.UNDER_2FT);
     }
 
+    /**
+     * The courier weight is per size (V48 Domex weight rate) — the admin must be able to set it on one
+     * variant without touching the others, since a missing weight silently bills as 1 kg.
+     */
+    @Test
+    void adminSetsPerSizeCourierWeight() throws Exception {
+        Long id = productService.create(new CreateProductRequest(
+            null, "Weighed Board " + System.nanoTime(), null, null, null, "Boards", null, null, null,
+            List.of(new GroupInput("Size", true, List.of("S", "L"))),
+            List.of(new VariantInput(List.of("S"), 250L, null, 5),
+                    new VariantInput(List.of("L"), 500L, null, 5))));
+
+        List<ProductVariant> vs = variants.findByProductId(id).stream()
+            .sorted((a, b) -> Long.compare(a.getPriceCents(), b.getPriceCents())).toList();
+        ProductVariant small = vs.get(0);
+        ProductVariant large = vs.get(1);
+
+        mvc.perform(patch("/api/admin/products/" + id + "/variants/" + large.getId() + "/delivery")
+                .cookie(admin("admin-deliv3@scanlanka.lk"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"delivery\":{\"boardSizeTier\":\"BETWEEN_2FT_6FT\",\"weightKg\":8.5,"
+                    + "\"courierEnabled\":true}}"))
+            .andExpect(status().isOk());
+
+        assertThat(variants.findById(large.getId()).orElseThrow().getWeightKg())
+            .isEqualByComparingTo(new java.math.BigDecimal("8.5"));
+        // Loosely coupled: the other size keeps its own (here, still unset) weight.
+        assertThat(variants.findById(small.getId()).orElseThrow().getWeightKg()).isNull();
+    }
+
+    @Test
+    void adminSetsProductLevelCourierWeight() throws Exception {
+        Long id = productService.create(new CreateProductRequest(
+            null, "Weighed Single " + System.nanoTime(), null, null, null, "Boards", null, 10, 50000L,
+            List.of(), List.of()));
+
+        mvc.perform(put("/api/admin/products/" + id).cookie(admin("admin-deliv4@scanlanka.lk"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"delivery\":{\"boardSizeTier\":\"UNDER_2FT\",\"weightKg\":2.25}}"))
+            .andExpect(status().isOk());
+
+        assertThat(products.findById(id).orElseThrow().getWeightKg())
+            .isEqualByComparingTo(new java.math.BigDecimal("2.25"));
+    }
+
     @Test
     void variantDeliveryEditRequiresAdmin() throws Exception {
         mvc.perform(patch("/api/admin/products/1/variants/1/delivery")

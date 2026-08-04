@@ -82,7 +82,7 @@ public class Product {
     private com.scanlanka.checkout.domain.BoardSizeTier boardSizeTier;  // null ⇒ not couriable
 
     @Column(name = "weight_kg")
-    private java.math.BigDecimal weightKg;                  // legacy; not used for courier pricing
+    private java.math.BigDecimal weightKg;                  // Domex weight rate; variant weight wins
 
     @Column(name = "lorry_colombo_cents")
     private Long lorryColomboCents;                         // fixed lorry price per zone; null ⇒ arranged/gated

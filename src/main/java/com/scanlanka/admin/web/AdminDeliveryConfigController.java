@@ -5,6 +5,7 @@ import com.scanlanka.admin.app.AdminDeliveryConfigService.CourierRateRequest;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.CourierRateView;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.MethodRequest;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.MethodView;
+import com.scanlanka.admin.app.AdminDeliveryConfigService.PostalZonePageView;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.PostalZoneRequest;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.PostalZoneView;
 import com.scanlanka.admin.app.AdminDeliveryConfigService.SettingsRequest;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -66,6 +68,13 @@ public class AdminDeliveryConfigController {
     public MethodView setMethod(@PathVariable DeliveryMethod method, @RequestBody MethodRequest req,
                                 @AuthenticationPrincipal AuthPrincipal admin) {
         return config.setMethodEnabled(method, req, adminId(admin));
+    }
+
+    @GetMapping("/postal-zones")
+    public PostalZonePageView postalZones(@RequestParam(required = false) String q,
+                                          @RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "50") int size) {
+        return config.listPostalZones(q, page, size);
     }
 
     @GetMapping("/postal-zones/{postalCode}")

@@ -170,7 +170,8 @@ public class AdminCatalogService {
     }
 
     private static DeliveryAttrsDTO productDelivery(Product p) {
-        return new DeliveryAttrsDTO(tierName(p.getBoardSizeTier()), p.getLorryColomboCents(), p.getLorrySuburbCents(),
+        return new DeliveryAttrsDTO(tierName(p.getBoardSizeTier()), p.getWeightKg(),
+            p.getLorryColomboCents(), p.getLorrySuburbCents(),
             p.getLorryOuterCents(),
             p.getLorryColomboGateCents(), p.getLorrySuburbGateCents(), p.getLorryOuterGateCents(),
             p.isLorryColomboEnabled(), p.isLorrySuburbEnabled(), p.isLorryOuterEnabled(),
@@ -178,7 +179,8 @@ public class AdminCatalogService {
     }
 
     private static DeliveryAttrsDTO variantDelivery(ProductVariant v) {
-        return new DeliveryAttrsDTO(tierName(v.getBoardSizeTier()), v.getLorryColomboCents(), v.getLorrySuburbCents(),
+        return new DeliveryAttrsDTO(tierName(v.getBoardSizeTier()), v.getWeightKg(),
+            v.getLorryColomboCents(), v.getLorrySuburbCents(),
             v.getLorryOuterCents(),
             v.getLorryColomboGateCents(), v.getLorrySuburbGateCents(), v.getLorryOuterGateCents(),
             v.isLorryColomboEnabled(), v.isLorrySuburbEnabled(), v.isLorryOuterEnabled(),

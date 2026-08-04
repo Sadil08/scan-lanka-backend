@@ -128,6 +128,38 @@ class AdminDeliveryConfigIT extends AbstractIntegrationTest {
             .andExpect(jsonPath("$.courierZone").value("OUTSTATION"));
     }
 
+    /** The postal-codes page needs to browse and search the whole mapping, not just one code at a time. */
+    @Test
+    void postalZoneListSearchesAndPages() throws Exception {
+        Cookie admin = admin("admin-postal-list@scanlanka.lk");
+        mvc.perform(put("/api/admin/postal-zones/77701").cookie(admin).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"lorryZone\":\"OUTER\",\"courierZone\":\"FARAWAY\",\"district\":\"Mannar\",\"province\":\"Northern Province\"}"))
+            .andExpect(status().isOk());
+
+        // By code prefix.
+        mvc.perform(get("/api/admin/postal-zones?q=77701").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.items[0].postalCode").value("77701"))
+            .andExpect(jsonPath("$.items[0].courierZone").value("FARAWAY"));
+
+        // By district, case-insensitively.
+        mvc.perform(get("/api/admin/postal-zones?q=mannar").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.postalCode=='77701')]").exists());
+
+        // Unfiltered listing is paged, and the page size is respected.
+        mvc.perform(get("/api/admin/postal-zones?page=0&size=5").cookie(admin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.size").value(5))
+            .andExpect(jsonPath("$.items.length()").value(org.hamcrest.Matchers.lessThanOrEqualTo(5)));
+    }
+
+    @Test
+    void postalZoneListRequiresAdmin() throws Exception {
+        mvc.perform(get("/api/admin/postal-zones")).andExpect(status().isForbidden());
+    }
+
     @Test
     void deliveryConfigEditRequiresAdmin() throws Exception {
         mvc.perform(put("/api/admin/courier-rate-card/CITY_LIMITS").contentType(MediaType.APPLICATION_JSON)

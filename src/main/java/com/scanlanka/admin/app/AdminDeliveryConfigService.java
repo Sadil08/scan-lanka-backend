@@ -11,6 +11,10 @@ import com.scanlanka.checkout.infra.CourierRateCardRepository;
 import com.scanlanka.checkout.infra.DeliveryMethodConfigRepository;
 import com.scanlanka.checkout.infra.DeliverySettingsRepository;
 import com.scanlanka.checkout.infra.PostalZoneRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +71,8 @@ public class AdminDeliveryConfigService {
     public record PostalZoneRequest(LorryZone lorryZone, CourierZone courierZone, String district, String province) {}
     public record PostalZoneView(String postalCode, LorryZone lorryZone, CourierZone courierZone,
                                  String district, String province) {}
+    /** One page of the postal-code table; {@code total} is the match count across all pages. */
+    public record PostalZonePageView(List<PostalZoneView> items, long total, int page, int size) {}
 
     // --- Courier rate card ---
 
@@ -153,6 +159,23 @@ public class AdminDeliveryConfigService {
 
     // --- Postal-code → zone mapping ---
 
+    /**
+     * Paged/searchable postal-code table for the admin page (08, owner 2026-08-03 — the seeded LK.txt
+     * set has gaps the owner wants to fill by hand). Blank {@code q} lists everything, ordered by code.
+     */
+    @Transactional(readOnly = true)
+    public PostalZonePageView listPostalZones(String q, int page, int size) {
+        int p = Math.max(0, page);
+        int s = Math.min(200, Math.max(1, size));
+        Pageable pageable = PageRequest.of(p, s, Sort.by("postalCode"));
+        String needle = q == null ? "" : q.trim();
+        Page<PostalZone> found = needle.isEmpty()
+            ? postalZones.findAll(pageable)
+            : postalZones.search(needle, pageable);
+        return new PostalZonePageView(found.getContent().stream().map(AdminDeliveryConfigService::toView).toList(),
+            found.getTotalElements(), p, s);
+    }
+
     @Transactional(readOnly = true)
     public PostalZoneView getPostalZone(String postalCode) {
         PostalZone z = postalZones.findById(normalize(postalCode))
@@ -163,6 +186,7 @@ public class AdminDeliveryConfigService {
     @Transactional
     public PostalZoneView upsertPostalZone(String postalCode, PostalZoneRequest req, Long adminId) {
         String pc = normalize(postalCode);
+        if (pc.isEmpty()) throw badRequest("POSTAL_CODE_REQUIRED");
         if (req.lorryZone() == null || req.courierZone() == null) throw badRequest("ZONE_REQUIRED");
         PostalZone z = postalZones.save(
             new PostalZone(pc, req.lorryZone(), req.courierZone(), req.district(), req.province()));

@@ -263,6 +263,7 @@ public class ProductService {
     /** Apply the delivery block wholesale (nulls included, so a charge/gate can be cleared). */
     private static void applyDelivery(Product p, DeliveryAttrs d) {
         p.setBoardSizeTier(d.boardSizeTier());
+        p.setWeightKg(d.weightKg());                                          // Domex weight rate (V48)
         p.setLorryColomboCents(d.lorryColomboCents());
         p.setLorrySuburbCents(d.lorrySuburbCents());
         p.setLorryOuterCents(d.lorryOuterCents());
@@ -280,6 +281,7 @@ public class ProductService {
 
     private static void applyDelivery(ProductVariant v, DeliveryAttrs d) {
         v.setBoardSizeTier(d.boardSizeTier());
+        v.setWeightKg(d.weightKg());                                          // per-size courier weight
         v.setLorryColomboCents(d.lorryColomboCents());
         v.setLorrySuburbCents(d.lorrySuburbCents());
         v.setLorryOuterCents(d.lorryOuterCents());
