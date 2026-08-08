@@ -76,13 +76,15 @@ public class DeliveryOptionsService {
                          long addMoreCents,          // MIN_BILL: how much more to unlock the lorry (else 0)
                          List<String> blockingItems) {} // OVERSIZE: item names that can't be couriered
 
-    /** The whole delivery picture for a cart. {@code whatsappOnly} ⇒ no rails, route to WhatsApp (12). */
-    public record DeliveryQuote(boolean whatsappOnly, boolean postalServiceable, List<Option> options) {}
+    /** The whole delivery picture for a cart. {@code whatsappOnly} ⇒ no rails, route to WhatsApp (12).
+     *  {@code lorryZone} is COLOMBO | SUBURB | OUTER when the postal code is mapped, else null. */
+    public record DeliveryQuote(boolean whatsappOnly, boolean postalServiceable, String lorryZone,
+                                List<Option> options) {}
 
     public DeliveryQuote options(List<CartLine> lines, String postalCode, String city, long subtotalCents) {
         // Any whatsapp-only item ⇒ neither rail; route the whole order to WhatsApp/quote (FR-DELIV-6d).
         if (lines.stream().anyMatch(CartLine::whatsappOnly)) {
-            return new DeliveryQuote(true, false, List.of());
+            return new DeliveryQuote(true, false, null, List.of());
         }
 
         Optional<PostalZone> zone = zoneResolver.postalZone(normalize(postalCode));
@@ -95,7 +97,8 @@ public class DeliveryOptionsService {
         if (enabled(DeliveryMethod.COURIER)) {
             options.add(courierOption(lines, courierZone.orElse(null)));
         }
-        return new DeliveryQuote(false, zone.isPresent(), options);
+        String lorryZone = zone.map(z -> z.getLorryZone().name()).orElse(null);
+        return new DeliveryQuote(false, zone.isPresent(), lorryZone, options);
     }
 
     private Option lorryOption(List<CartLine> lines, long subtotalCents, PostalZone zone) {

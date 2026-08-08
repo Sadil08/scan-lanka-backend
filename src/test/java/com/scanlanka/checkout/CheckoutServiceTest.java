@@ -53,7 +53,7 @@ class CheckoutServiceTest {
     @BeforeEach
     void freeLorryRail() {
         when(taxConfigs.findFirstByOrderByIdAsc()).thenReturn(Optional.empty()); // 0% tax → obvious arithmetic
-        DeliveryQuote dq = new DeliveryQuote(false, true,
+        DeliveryQuote dq = new DeliveryQuote(false, true, "COLOMBO",
             List.of(new Option(DeliveryMethod.COMPANY_LORRY, true, null, 0, 0, false, 0, List.of())));
         when(deliveryOptions.options(any(), any(), any(), anyLong())).thenReturn(dq);
     }
