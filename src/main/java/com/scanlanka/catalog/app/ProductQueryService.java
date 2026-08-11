@@ -18,6 +18,7 @@ import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.NavCategoryLinkDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.NavMenuGroupDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.NavProductLinkDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.ParentFacetDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductChipDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductDetailDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ResolveVariantResponse;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
