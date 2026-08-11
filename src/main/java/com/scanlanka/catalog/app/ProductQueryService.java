@@ -15,7 +15,9 @@ import com.scanlanka.catalog.web.dto.ProductResponses.CatalogFacetsDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.CategoryCountDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ImageDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.OptionDTO;
-import com.scanlanka.catalog.web.dto.ProductResponses.ParentFacetDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.NavCategoryLinkDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.NavMenuGroupDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.NavProductLinkDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductChipDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ProductDetailDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.ResolveVariantResponse;
@@ -23,14 +25,18 @@ import com.scanlanka.catalog.web.dto.ProductResponses.SpecGroupDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.VariantDTO;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Public storefront reads (02-storefront-browse). Only visible products; prices server-supplied. */
@@ -81,6 +87,48 @@ public class ProductQueryService {
         return products.countVisibleProductsByCategory().stream()
             .map(row -> new CategoryCountDTO((String) row[0], ((Number) row[1]).longValue(), (String) row[2]))
             .toList();
+    }
+
+    private static final List<String> NAV_GROUP_ORDER = List.of(
+        "Writing Boards",
+        "Pin Up Board / Notice Board",
+        "Art Supplies",
+        "Menu Board And Other Restaurant Items",
+        "Sport / Game Boards",
+        "Kids Corner",
+        "Key Holder",
+        "Portable Partition"
+    );
+
+    /** Storefront header nav: groups, sub-categories, and product links for single-category groups. */
+    @Cacheable(value = "catalog-facets", key = "'nav-menu'")
+    public List<NavMenuGroupDTO> navMenu() {
+        Map<String, List<CategoryCountDTO>> byGroup = new LinkedHashMap<>();
+        for (CategoryCountDTO c : categoryCounts()) {
+            String key = (c.group() != null && !c.group().isBlank()) ? c.group() : c.name();
+            byGroup.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+        }
+
+        List<NavMenuGroupDTO> groups = new ArrayList<>();
+        for (var entry : byGroup.entrySet()) {
+            List<NavCategoryLinkDTO> cats = entry.getValue().stream()
+                .map(c -> new NavCategoryLinkDTO(c.name(), c.count()))
+                .toList();
+            List<NavProductLinkDTO> productLinks = List.of();
+            if (entry.getValue().size() == 1) {
+                String category = entry.getValue().get(0).name();
+                productLinks = list(new BrowseFilters(null, null, category, "newest"), PageRequest.of(0, 50))
+                    .map(p -> new NavProductLinkDTO(p.slug(), p.name()))
+                    .toList();
+            }
+            groups.add(new NavMenuGroupDTO(entry.getKey(), cats, productLinks));
+        }
+
+        groups.sort(Comparator.comparingInt(g -> {
+            int i = NAV_GROUP_ORDER.indexOf(g.name());
+            return i == -1 ? NAV_GROUP_ORDER.size() : i;
+        }));
+        return groups;
     }
 
     public DetailView detail(String slug) {

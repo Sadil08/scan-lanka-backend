@@ -51,6 +51,14 @@ public final class ProductResponses {
     /** group: top-level storefront group ("Writing Boards" … "Portable Partition"), null = top-level. */
     public record CategoryCountDTO(String name, long count, String group) {}
 
+    /** Product link for the Our Products nav (single-category groups). */
+    public record NavProductLinkDTO(String slug, String name) {}
+
+    public record NavCategoryLinkDTO(String name, long count) {}
+
+    /** One top-level nav group with categories and optional expanded product links. */
+    public record NavMenuGroupDTO(String name, List<NavCategoryLinkDTO> categories, List<NavProductLinkDTO> products) {}
+
     public record VariantPreviewRowDTO(List<String> optionValues, int index) {}
 
     public record VariantPreviewResponse(List<VariantPreviewRowDTO> rows) {}

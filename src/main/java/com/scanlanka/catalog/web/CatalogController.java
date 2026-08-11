@@ -3,6 +3,7 @@ package com.scanlanka.catalog.web;
 import com.scanlanka.catalog.app.ProductQueryService;
 import com.scanlanka.catalog.web.dto.ProductResponses.CatalogFacetsDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.CategoryCountDTO;
+import com.scanlanka.catalog.web.dto.ProductResponses.NavMenuGroupDTO;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,5 +36,13 @@ public class CatalogController {
         return ResponseEntity.ok()
             .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
             .body(query.categoryCounts());
+    }
+
+    /** Grouped Our Products nav tree; single-category groups include individual product links. */
+    @GetMapping("/nav-menu")
+    public ResponseEntity<List<NavMenuGroupDTO>> navMenu() {
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+            .body(query.navMenu());
     }
 }
