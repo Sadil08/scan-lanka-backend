@@ -42,7 +42,8 @@ public class CheckoutController {
 
     @PostMapping("/quote")
     public CheckoutService.Quote quote(@Valid @RequestBody QuoteRequest req) {
-        return checkout.quote(toItems(req.items()), method(req.deliveryMethod()), req.postalCode(), req.city());
+        return checkout.quote(toItems(req.items()), method(req.deliveryMethod()), req.postalCode(), req.city(),
+            req.paymentMethod());
     }
 
     @PostMapping

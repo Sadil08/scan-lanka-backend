@@ -23,7 +23,8 @@ public final class OrderCommands {
         FulfilmentType fulfilmentType,
         Address ship, Billing billing,
         List<LineSnapshot> lines,
-        long subtotalCents, long discountCents, long deliveryCents, long taxCents, long totalCents,
+        long subtotalCents, long discountCents, long deliveryCents, long taxCents, long payhereFeeCents,
+        long totalCents,
         DeliveryPayment deliveryPayment, long deliveryCodCents,
         String deliveryMethod, long courierEstimateCents, boolean deliveryArranged,
         String paymentMethod) {}

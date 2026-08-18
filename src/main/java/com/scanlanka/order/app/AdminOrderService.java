@@ -67,7 +67,8 @@ public class AdminOrderService {
     public record OrderDetailView(Long customerId, String orderNumber, String status, String contactName, String contactEmail,
                                   String contactPhone, String fulfilmentType, String deliveryPayment,
                                   String deliveryMethod, long courierEstimateCents,
-                                  long subtotalCents, long deliveryCents, long taxCents, long totalCents,
+                                  long subtotalCents, long deliveryCents, long taxCents, long payhereFeeCents,
+                                  long totalCents,
                                   long deliveryCodCents, Long actualDeliveryCents, String deliveryCourier,
                                   ShipAddress ship, List<OrderLineView> lines, List<StatusEventView> timeline,
                                   PaymentView payment) {}
@@ -96,7 +97,7 @@ public class AdminOrderService {
         return new OrderDetailView(o.getCustomerId(), o.getOrderNumber(), o.getStatus().name(), o.getContactName(),
             o.getContactEmail(), o.getContactPhone(), o.getFulfilmentType().name(), o.getDeliveryPayment().name(),
             o.getDeliveryMethod(), o.getCourierEstimateCents(),
-            o.getSubtotalCents(), o.getDeliveryCents(), o.getTaxCents(), o.getTotalCents(),
+            o.getSubtotalCents(), o.getDeliveryCents(), o.getTaxCents(), o.getPayhereFeeCents(), o.getTotalCents(),
             o.getDeliveryCodCents(), o.getActualDeliveryCents(), o.getDeliveryCourier(),
             ship(o), lines, timeline, paymentView(o));
     }

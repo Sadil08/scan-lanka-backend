@@ -44,7 +44,7 @@ public class EmailTemplateRenderer {
             <p>Hi %s,</p>
             <p>Thank you for your order <strong>%s</strong>.</p>
             <ul>%s</ul>
-            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
+            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/>%s<strong>Total: %s</strong></p>
             %s
             %s
             <p>Download your receipt PDF from your account or via <a href="%s" style="color:%s;">order lookup</a>.</p>
@@ -55,6 +55,7 @@ public class EmailTemplateRenderer {
             lkr(m.subtotalCents()),
             deliveryLine(m),
             lkr(m.taxCents()),
+            payhereFeeLine(m),
             lkr(m.totalCents()),
             codNote(m),
             contactBlock(m),
@@ -80,7 +81,7 @@ public class EmailTemplateRenderer {
             <p>Hi %s,</p>
             <p>We've received your order <strong>%s</strong> — thank you!</p>
             <ul>%s</ul>
-            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/><strong>Total: %s</strong></p>
+            <p>Subtotal: %s<br/>%s<br/>Tax: %s<br/>%s<strong>Total: %s</strong></p>
             %s
             <p>If you're paying by bank transfer, please make sure you've uploaded your transfer slip so
             we can confirm your order. We'll email you again as soon as your payment is confirmed.</p>
@@ -92,6 +93,7 @@ public class EmailTemplateRenderer {
             lkr(m.subtotalCents()),
             deliveryLine(m),
             lkr(m.taxCents()),
+            payhereFeeLine(m),
             lkr(m.totalCents()),
             contactBlock(m),
             HtmlEscaper.escape(lookupUrl),
@@ -242,6 +244,11 @@ public class EmailTemplateRenderer {
             return "Courier fee (approx., pay on delivery): " + lkr(m.courierEstimateCents());
         }
         return "Lorry delivery: " + lkr(m.deliveryCents());
+    }
+
+    /** PayHere's card surcharge — shown only when actually charged (CARD orders with a nonzero rate). */
+    private static String payhereFeeLine(ReceiptModel m) {
+        return m.payhereFeeCents() > 0 ? "PayHere fee: " + lkr(m.payhereFeeCents()) + "<br/>" : "";
     }
 
     /** "Deliver to" block for the customer emails: name, phone and shipping address incl. postal code. */

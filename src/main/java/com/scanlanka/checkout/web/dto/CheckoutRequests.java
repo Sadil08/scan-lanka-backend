@@ -21,7 +21,8 @@ public final class CheckoutRequests {
     /** All available rails for a cart + postal code (powers the rail picker). */
     public record OptionsRequest(List<ItemDTO> items, String postalCode, String city) {}
 
-    public record QuoteRequest(List<ItemDTO> items, @NotBlank String deliveryMethod, String postalCode, String city) {}
+    public record QuoteRequest(List<ItemDTO> items, @NotBlank String deliveryMethod, String postalCode, String city,
+                               String paymentMethod) {}   // CARD | BANK, optional — reflects the PayHere fee for CARD
 
     public record PlaceRequest(
         List<ItemDTO> items,

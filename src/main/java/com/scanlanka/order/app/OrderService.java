@@ -51,7 +51,8 @@ public class OrderService {
             var b = cmd.billing();
             order.setBilling(b.name(), b.taxId(), b.street(), b.city(), b.province(), b.postalCode());
         }
-        order.setTotals(cmd.subtotalCents(), cmd.discountCents(), cmd.deliveryCents(), cmd.taxCents(), cmd.totalCents());
+        order.setTotals(cmd.subtotalCents(), cmd.discountCents(), cmd.deliveryCents(), cmd.taxCents(),
+            cmd.payhereFeeCents(), cmd.totalCents());
         order.setDeliveryPayment(cmd.deliveryPayment());
         order.setDeliveryCodCents(cmd.deliveryCodCents());
         order.setDeliveryMethod(cmd.deliveryMethod());

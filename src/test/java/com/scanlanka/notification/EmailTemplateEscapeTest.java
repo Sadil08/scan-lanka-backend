@@ -44,7 +44,7 @@ class EmailTemplateEscapeTest {
             "SL-TEST", name, "a@x.lk", "0771234567", "DELIVERY", "COMPANY_LORRY", "PREPAID", "PAYHERE",
             "1 Main St", "Colombo", "WP", "00100",
             null, null, null, null, null, null,
-            1000, 200, 50, 1250, 0, 0,
+            1000, 200, 50, 0, 1250, 0, 0,
             List.of(new ReceiptModel.Line("SKU1", "Item", "Spec", 1, 1000, 1000)),
             false);
     }

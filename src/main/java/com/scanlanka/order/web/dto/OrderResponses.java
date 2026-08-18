@@ -17,6 +17,7 @@ public final class OrderResponses {
 
     public record OrderDetailView(
         String orderNumber, String status, long subtotalCents, long deliveryCents, long taxCents,
+        long payhereFeeCents,
         long totalCents, long refundTotalCents, long deliveryCodCents, String fulfilmentType, String deliveryPayment,
         String deliveryMethod, long courierEstimateCents,
         String carrier, String trackingRef,

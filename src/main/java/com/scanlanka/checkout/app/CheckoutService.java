@@ -6,8 +6,10 @@ import com.scanlanka.checkout.app.DeliveryOptionsService.CartLine;
 import com.scanlanka.checkout.app.DeliveryOptionsService.DeliveryQuote;
 import com.scanlanka.checkout.app.DeliveryOptionsService.Option;
 import com.scanlanka.checkout.domain.DeliveryMethod;
+import com.scanlanka.checkout.domain.PayHereFeeConfig;
 import com.scanlanka.checkout.domain.PaymentChoice;
 import com.scanlanka.checkout.domain.TaxConfig;
+import com.scanlanka.checkout.infra.PayHereFeeConfigRepository;
 import com.scanlanka.checkout.infra.TaxConfigRepository;
 import com.scanlanka.order.app.OrderCommands;
 import com.scanlanka.order.app.OrderCommands.CreateOrderCommand;
@@ -40,16 +42,19 @@ public class CheckoutService {
 
     private final ProductLookupService catalog;
     private final TaxConfigRepository taxConfigs;
+    private final PayHereFeeConfigRepository payHereFeeConfigs;
     private final DeliveryOptionsService deliveryOptions;
     private final OrderService orderService;
     private final StockReservationService reservations;
     private final ApplicationEventPublisher events;
 
     public CheckoutService(ProductLookupService catalog, TaxConfigRepository taxConfigs,
+                           PayHereFeeConfigRepository payHereFeeConfigs,
                            DeliveryOptionsService deliveryOptions, OrderService orderService,
                            StockReservationService reservations, ApplicationEventPublisher events) {
         this.catalog = catalog;
         this.taxConfigs = taxConfigs;
+        this.payHereFeeConfigs = payHereFeeConfigs;
         this.deliveryOptions = deliveryOptions;
         this.orderService = orderService;
         this.reservations = reservations;
@@ -59,12 +64,15 @@ public class CheckoutService {
     public record ItemInput(Long productId, Long variantId, int quantity) {}
 
     /**
-     * @param onlineTotalCents what is charged online now (lorry: subtotal+delivery+tax; courier: 0)
-     * @param approxTotalCents what the customer ultimately pays (courier: + estimate, paid on delivery)
-     * @param available        whether the chosen rail is offered; {@code reason} explains why not
+     * @param onlineTotalCents  what is charged online before any card surcharge (lorry: subtotal+delivery+tax;
+     *                          courier: 0) — also the door total collected on COD
+     * @param payHereFeeCents   PayHere's card surcharge on top of onlineTotalCents, charged only when the
+     *                          customer pays by CARD (never for bank transfer, COD, or courier); admin-tunable
+     * @param approxTotalCents  what the customer ultimately pays (courier: + estimate, paid on delivery)
+     * @param available         whether the chosen rail is offered; {@code reason} explains why not
      */
     public record Quote(long subtotalCents, long deliveryCents, long taxCents, long onlineTotalCents,
-                        long courierEstimateCents, long approxTotalCents, boolean someArranged,
+                        long payHereFeeCents, long courierEstimateCents, long approxTotalCents, boolean someArranged,
                         DeliveryMethod deliveryMethod, boolean available, String reason, int lineCount) {}
 
     public record PlaceInput(List<ItemInput> items, DeliveryMethod deliveryMethod, PaymentChoice paymentChoice,
@@ -74,9 +82,11 @@ public class CheckoutService {
 
     public record Placed(String orderNumber, long onlineTotalCents) {}
 
+    /** @param paymentMethod CARD | BANK — only CARD (PayHere) ever carries a surcharge; null/other ⇒ none shown */
     @Transactional(readOnly = true)
-    public Quote quote(List<ItemInput> items, DeliveryMethod deliveryMethod, String postalCode, String city) {
-        return computeQuote(items, deliveryMethod, postalCode, city, false).quote();
+    public Quote quote(List<ItemInput> items, DeliveryMethod deliveryMethod, String postalCode, String city,
+                       String paymentMethod) {
+        return computeQuote(items, deliveryMethod, postalCode, city, false, paymentMethod).quote();
     }
 
     /** All rails for a cart + postal code (powers the checkout rail picker, 17 FR-DELIV-1). */
@@ -96,7 +106,7 @@ public class CheckoutService {
      * after consolidating repeated (product, variant) inputs into a single line, then quote the chosen rail.
      */
     private QuoteResult computeQuote(List<ItemInput> items, DeliveryMethod method, String postalCode, String city,
-                                     boolean strict) {
+                                     boolean strict, String paymentMethod) {
         List<PricedLine> priced = priceLines(items, strict);
         long subtotal = priced.stream().mapToLong(PricedLine::lineTotalCents).sum();
         long tax = Math.round(subtotal * (loadTaxRateBps() / 10000.0));
@@ -105,32 +115,40 @@ public class CheckoutService {
         Option option = dq.options().stream().filter(o -> o.method() == method).findFirst().orElse(null);
 
         if (dq.whatsappOnly()) {
-            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, "WHATSAPP_ONLY");
+            return result(priced, subtotal, 0, tax, 0, 0, 0, subtotal + tax, false, method, false, "WHATSAPP_ONLY");
         }
         if (option == null) {
-            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, "METHOD_DISABLED");
+            return result(priced, subtotal, 0, tax, 0, 0, 0, subtotal + tax, false, method, false, "METHOD_DISABLED");
         }
         if (!option.available()) {
-            return result(priced, subtotal, 0, tax, 0, 0, subtotal + tax, false, method, false, option.reason());
+            return result(priced, subtotal, 0, tax, 0, 0, 0, subtotal + tax, false, method, false, option.reason());
         }
 
         if (method == DeliveryMethod.COMPANY_LORRY) {
             long delivery = option.prepaidCents();
-            long online = subtotal + delivery + tax;          // prepaid online with the product
-            return result(priced, subtotal, delivery, tax, 0, online, online, option.someArranged(),
+            long online = subtotal + delivery + tax;          // prepaid online with the product, before any card fee
+            long fee = payHereFeeCents(online, paymentMethod);
+            return result(priced, subtotal, delivery, tax, fee, 0, online, online, option.someArranged(),
                 method, true, null);
         }
-        // COURIER — full COD: nothing online; approximate total = product + tax + courier estimate.
+        // COURIER — full COD: nothing online, ever; no PayHere fee applies. Approx total = product + tax + estimate.
         long estimate = option.courierEstimateCents();
-        return result(priced, subtotal, 0, tax, estimate, 0, subtotal + tax + estimate, false, method, true, null);
+        return result(priced, subtotal, 0, tax, 0, estimate, 0, subtotal + tax + estimate, false, method, true, null);
     }
 
-    private QuoteResult result(List<PricedLine> priced, long subtotal, long delivery, long tax,
+    private QuoteResult result(List<PricedLine> priced, long subtotal, long delivery, long tax, long fee,
                                long estimate, long online, long approx, boolean someArranged,
                                DeliveryMethod method, boolean available, String reason) {
-        Quote q = new Quote(subtotal, delivery, tax, online, estimate, approx, someArranged,
+        Quote q = new Quote(subtotal, delivery, tax, online, fee, estimate, approx, someArranged,
             method, available, reason, priced.size());
         return new QuoteResult(q, priced);
+    }
+
+    /** 0 unless paying by CARD (PayHere) — bank transfer, COD, and courier never carry the surcharge. */
+    private long payHereFeeCents(long doorTotal, String paymentMethod) {
+        if (!"CARD".equalsIgnoreCase(paymentMethod)) return 0;
+        int bps = payHereFeeConfigs.findFirstByOrderByIdAsc().map(PayHereFeeConfig::getRateBps).orElse(0);
+        return Math.round(doorTotal * (bps / 10000.0));
     }
 
     @Transactional
@@ -140,7 +158,7 @@ public class CheckoutService {
         String city = in.ship() != null ? in.ship().city() : null;
         // strict=true: a resolvable product that can't satisfy the requested qty (its last unit already
         // reserved) is a hard 409, not a silently-dropped line (FR-CHECKOUT-7).
-        QuoteResult qr = computeQuote(in.items(), in.deliveryMethod(), postal, city, true);
+        QuoteResult qr = computeQuote(in.items(), in.deliveryMethod(), postal, city, true, null);
         Quote q = qr.quote();
         if (q.lineCount() == 0) throw badRequest("NO_AVAILABLE_ITEMS");
         if (!q.available()) {
@@ -163,17 +181,20 @@ public class CheckoutService {
         boolean cod = !lorry || choice == PaymentChoice.COD;
         DeliveryPayment payment = cod ? DeliveryPayment.COD : DeliveryPayment.PREPAID;
         long doorTotal = q.subtotalCents() + q.deliveryCents() + q.taxCents();
-        long onlineTotal = cod ? 0 : doorTotal;
-        long codCents = (lorry && cod) ? doorTotal : 0;   // cash the driver collects (0 for courier)
+        long codCents = (lorry && cod) ? doorTotal : 0;   // cash the driver collects (0 for courier) — never a card fee
 
         // CARD | BANK for prepaid online; null for COD (nothing charged online).
         String paymentMethod = cod ? null : normalizePaymentMethod(in.paymentMethod());
+        // The PayHere surcharge (admin-tunable) applies only to prepaid CARD checkouts, on the full
+        // door total including delivery — never to bank transfer or any COD order (SEC-PAY: server-computed).
+        long payhereFee = cod ? 0 : payHereFeeCents(doorTotal, paymentMethod);
+        long onlineTotal = cod ? 0 : doorTotal + payhereFee;
 
         CreateOrderCommand cmd = new CreateOrderCommand(
             in.customerId(), in.guestEmail(),
             in.contactName(), in.contactPhone(), in.contactEmail(),
             FulfilmentType.DELIVERY, in.ship(), in.billing(), snapshots,
-            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), onlineTotal,
+            q.subtotalCents(), 0, q.deliveryCents(), q.taxCents(), payhereFee, onlineTotal,
             payment, codCents,
             in.deliveryMethod().name(), q.courierEstimateCents(), q.someArranged(),
             paymentMethod);

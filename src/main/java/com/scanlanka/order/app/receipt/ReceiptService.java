@@ -52,7 +52,7 @@ public class ReceiptService {
             order.getShipStreet(), order.getShipCity(), order.getShipProvince(), order.getShipPostalCode(),
             order.getBillName(), order.getBillTaxId(), order.getBillStreet(),
             order.getBillCity(), order.getBillProvince(), order.getBillPostalCode(),
-            order.getSubtotalCents(), order.getDeliveryCents(), order.getTaxCents(),
+            order.getSubtotalCents(), order.getDeliveryCents(), order.getTaxCents(), order.getPayhereFeeCents(),
             order.getTotalCents(), order.getDeliveryCodCents(), order.getCourierEstimateCents(), lines, invoice);
     }
 

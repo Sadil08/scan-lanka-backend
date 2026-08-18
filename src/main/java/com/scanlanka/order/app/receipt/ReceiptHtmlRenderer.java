@@ -68,6 +68,7 @@ public class ReceiptHtmlRenderer {
                 <tr><td>Subtotal</td><td>%s</td></tr>
                 %s
                 <tr><td>Tax</td><td>%s</td></tr>
+                %s
                 <tr><td><strong>Paid online</strong></td><td><strong>%s</strong></td></tr>
                 %s
               </table>
@@ -100,6 +101,7 @@ public class ReceiptHtmlRenderer {
             lkr(m.subtotalCents()),
             deliveryRow(m),
             lkr(m.taxCents()),
+            payhereFeeRow(m),
             lkr(m.totalCents()),
             codRow(m),
             BrandAssets.COMPANY_ADDRESS, BrandAssets.COMPANY_PHONE, BrandAssets.COMPANY_EMAIL);
@@ -143,6 +145,12 @@ public class ReceiptHtmlRenderer {
                 + lkr(m.courierEstimateCents()) + "</td></tr>";
         }
         return "<tr><td>Lorry delivery</td><td>" + lkr(m.deliveryCents()) + "</td></tr>";
+    }
+
+    /** PayHere's card surcharge — shown only when actually charged (CARD orders with a nonzero rate). */
+    private static String payhereFeeRow(ReceiptModel m) {
+        if (m.payhereFeeCents() <= 0) return "";
+        return "<tr><td>PayHere card fee</td><td>" + lkr(m.payhereFeeCents()) + "</td></tr>";
     }
 
     /** The amount actually collected at the door, when the order isn't fully prepaid online. */

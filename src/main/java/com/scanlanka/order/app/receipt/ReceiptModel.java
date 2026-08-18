@@ -25,6 +25,7 @@ public record ReceiptModel(
     long subtotalCents,
     long deliveryCents,
     long taxCents,
+    long payhereFeeCents,      // PayHere card surcharge, 0 unless paid by CARD (admin-tunable)
     long totalCents,
     long deliveryCodCents,
     long courierEstimateCents,  // Domex estimate, display-only (17 FR-DELIV-5) - 0 for lorry orders

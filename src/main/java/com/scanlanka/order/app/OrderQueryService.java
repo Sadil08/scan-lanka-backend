@@ -91,7 +91,8 @@ public class OrderQueryService {
             .toList();
         return new OrderDetailView(
             o.getOrderNumber(), o.getStatus().name(), o.getSubtotalCents(), o.getDeliveryCents(),
-            o.getTaxCents(), o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getDeliveryCodCents(),
+            o.getTaxCents(), o.getPayhereFeeCents(),
+            o.getTotalCents(), refunds.sumAmountByOrderId(o.getId()), o.getDeliveryCodCents(),
             o.getFulfilmentType().name(), o.getDeliveryPayment().name(),
             o.getDeliveryMethod(), o.getCourierEstimateCents(),
             o.getCarrier(), o.getTrackingRef(),

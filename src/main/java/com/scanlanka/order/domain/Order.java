@@ -58,6 +58,7 @@ public class Order {
     @Column(name = "discount_cents", nullable = false) private long discountCents;
     @Column(name = "delivery_cents", nullable = false) private long deliveryCents;
     @Column(name = "tax_cents", nullable = false) private long taxCents;
+    @Column(name = "payhere_fee_cents", nullable = false) private long payhereFeeCents;
     @Column(name = "total_cents", nullable = false) private long totalCents;
 
     @Enumerated(EnumType.STRING)
@@ -112,6 +113,7 @@ public class Order {
     public long getSubtotalCents() { return subtotalCents; }
     public long getDeliveryCents() { return deliveryCents; }
     public long getTaxCents() { return taxCents; }
+    public long getPayhereFeeCents() { return payhereFeeCents; }
     public long getTotalCents() { return totalCents; }
     public long getDeliveryCodCents() { return deliveryCodCents; }
     public Long getActualDeliveryCents() { return actualDeliveryCents; }
@@ -142,9 +144,9 @@ public class Order {
         this.billName = name; this.billTaxId = taxId; this.billStreet = street;
         this.billCity = city; this.billProvince = province; this.billPostalCode = postal;
     }
-    public void setTotals(long subtotal, long discount, long delivery, long tax, long total) {
+    public void setTotals(long subtotal, long discount, long delivery, long tax, long payhereFee, long total) {
         this.subtotalCents = subtotal; this.discountCents = discount; this.deliveryCents = delivery;
-        this.taxCents = tax; this.totalCents = total;
+        this.taxCents = tax; this.payhereFeeCents = payhereFee; this.totalCents = total;
     }
     public void setDeliveryPayment(DeliveryPayment dp) { this.deliveryPayment = dp; }
     public void setDeliveryCodCents(long v) { this.deliveryCodCents = v; }

@@ -1,6 +1,7 @@
 package com.scanlanka.admin.web;
 
 import com.scanlanka.admin.app.AdminCheckoutConfigService;
+import com.scanlanka.admin.app.AdminCheckoutConfigService.PayHereFeeConfigView;
 import com.scanlanka.admin.app.AdminCheckoutConfigService.TaxConfigView;
 import com.scanlanka.shared.security.AuthPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -29,5 +30,16 @@ public class AdminCheckoutConfigController {
     public TaxConfigView updateTax(@RequestBody TaxConfigView req,
                                    @AuthenticationPrincipal AuthPrincipal admin) {
         return config.updateTax(req, admin != null ? admin.userId() : null);
+    }
+
+    @GetMapping("/payhere-fee-config")
+    public PayHereFeeConfigView payHereFeeConfig() {
+        return config.payHereFeeConfig();
+    }
+
+    @PutMapping("/payhere-fee-config")
+    public PayHereFeeConfigView updatePayHereFee(@RequestBody PayHereFeeConfigView req,
+                                                 @AuthenticationPrincipal AuthPrincipal admin) {
+        return config.updatePayHereFee(req, admin != null ? admin.userId() : null);
     }
 }
