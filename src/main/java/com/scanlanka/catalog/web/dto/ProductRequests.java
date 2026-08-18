@@ -81,6 +81,9 @@ public final class ProductRequests {
     /** Set/replace the per-size (or product-level) delivery attributes (FR-CATALOG-14b/c). */
     public record DeliveryUpdateRequest(@Valid DeliveryAttrs delivery) {}
 
+    /** Change one existing variant's (size's) price without touching anything else about it. */
+    public record VariantPriceUpdateRequest(@Positive long priceCents) {}
+
     /** Partial update of product basics (null fields are left unchanged). Spec rebuild is a separate flow. */
     public record UpdateProductRequest(
         @Size(max = 200) String name,

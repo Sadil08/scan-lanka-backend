@@ -164,6 +164,23 @@ public class ProductService {
         cacheEvictor.evictAll();
     }
 
+    /**
+     * Change one existing variant's (size's) price (loosely-coupled admin editing, owner 2026-08-18 —
+     * previously a size's price could only be set at creation; a typo or a supplier price change meant
+     * deleting and re-adding the size, which is refused once it's been ordered).
+     */
+    @Transactional
+    public void updateVariantPrice(Long variantId, long priceCents) {
+        ProductVariant v = variants.findById(variantId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Variant not found"));
+        v.setPriceCents(priceCents);
+        variants.save(v);
+        Product p = products.findById(v.getProductId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+        recomputePriceRange(p);
+        cacheEvictor.evictAll();
+    }
+
     public record VariantView(long id, String sku, long priceCents, String signature) {}
 
     /**

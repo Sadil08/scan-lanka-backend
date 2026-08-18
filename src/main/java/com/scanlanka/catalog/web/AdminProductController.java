@@ -10,6 +10,7 @@ import com.scanlanka.catalog.web.dto.ProductRequests.CreateProductRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.DeliveryUpdateRequest;
 import com.scanlanka.catalog.web.dto.ProductRequests.GroupInput;
 import com.scanlanka.catalog.web.dto.ProductRequests.UpdateProductRequest;
+import com.scanlanka.catalog.web.dto.ProductRequests.VariantPriceUpdateRequest;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductDetailDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.AdminProductRowDTO;
 import com.scanlanka.catalog.web.dto.ProductResponses.LorryPricingRowDTO;
@@ -91,6 +92,14 @@ public class AdminProductController {
     public ResponseEntity<Void> setVariantDelivery(@PathVariable Long id, @PathVariable Long variantId,
                                                    @Valid @RequestBody DeliveryUpdateRequest req) {
         productService.updateVariantDelivery(variantId, req.delivery());
+        return ResponseEntity.ok().build();
+    }
+
+    /** Change one existing variant's (size's) price. */
+    @PatchMapping("/{id}/variants/{variantId}/price")
+    public ResponseEntity<Void> setVariantPrice(@PathVariable Long id, @PathVariable Long variantId,
+                                                @Valid @RequestBody VariantPriceUpdateRequest req) {
+        productService.updateVariantPrice(variantId, req.priceCents());
         return ResponseEntity.ok().build();
     }
 
