@@ -7,11 +7,27 @@ build/
 bin/
 
 # =========================================================================
-# Environment Secrets / Local Overrides
+# Environment Secrets / Local Overrides (.env.example is committed as a template)
 # =========================================================================
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Google Cloud / service account keys
+ai-player-*.json
+*-service-account*.json
+gsc-credentials.json
+credentials.json
+client_secret*.json
+
+# SSH / deploy keys
+*.pem
+*.ppk
+deploy/.keys/
+
+# Local secret notes
+scan lanka.txt
 
 # =========================================================================
 # Application Specific Files
