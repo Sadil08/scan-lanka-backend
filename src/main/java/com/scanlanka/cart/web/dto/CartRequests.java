@@ -10,11 +10,12 @@ public final class CartRequests {
 
     private CartRequests() {}
 
-    public record ItemDTO(@NotNull Long productId, Long variantId, @Min(1) int quantity) {}
+    /** {@code optionIds}: optional non-price spec choices (e.g. colour); validated server-side. */
+    public record ItemDTO(@NotNull Long productId, Long variantId, @Min(1) int quantity, List<Long> optionIds) {}
 
     public record CartItemsRequest(List<ItemDTO> items) {}
 
-    public record AddItemRequest(@NotNull Long productId, Long variantId, @Min(1) int quantity) {}
+    public record AddItemRequest(@NotNull Long productId, Long variantId, @Min(1) int quantity, List<Long> optionIds) {}
 
     public record QuantityRequest(@Min(1) int quantity) {}
 }

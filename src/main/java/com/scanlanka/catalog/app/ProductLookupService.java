@@ -3,12 +3,23 @@ package com.scanlanka.catalog.app;
 import com.scanlanka.catalog.domain.Product;
 import com.scanlanka.catalog.domain.ProductVariant;
 import com.scanlanka.checkout.domain.BoardSizeTier;
+import com.scanlanka.catalog.domain.SpecGroup;
+import com.scanlanka.catalog.domain.SpecOption;
 import com.scanlanka.catalog.infra.ProductRepository;
+import com.scanlanka.catalog.infra.SpecGroupRepository;
+import com.scanlanka.catalog.infra.SpecOptionRepository;
 import com.scanlanka.catalog.infra.ProductVariantRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Public catalog port for other features (cart/checkout) to resolve a line's authoritative price +
@@ -21,12 +32,55 @@ public class ProductLookupService {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
     private final VariantLabelResolver labels;
+    private final SpecGroupRepository groups;
+    private final SpecOptionRepository options;
 
     public ProductLookupService(ProductRepository products, ProductVariantRepository variants,
-                                VariantLabelResolver labels) {
+                                VariantLabelResolver labels, SpecGroupRepository groups,
+                                SpecOptionRepository options) {
         this.products = products;
         this.variants = variants;
         this.labels = labels;
+        this.groups = groups;
+        this.options = options;
+    }
+
+    /** A validated optional (non-price) choice: canonical sorted id list + display label ("Colour: Red"). */
+    public record Selection(String optionIds, String label) {}
+
+    /**
+     * Validates client-sent option ids against the product's non-price-affecting spec groups (one option
+     * per group, unknown/foreign/price-affecting ids dropped) and returns the canonical ids + label.
+     * The label is built server-side from catalog data, never taken from the client.
+     */
+    public Optional<Selection> resolveSelection(Long productId, String optionIds) {
+        if (productId == null || optionIds == null || optionIds.isBlank()) return Optional.empty();
+        Map<Long, SpecGroup> optional = new HashMap<>();
+        for (SpecGroup g : groups.findByProductIdOrderByDisplayOrderAsc(productId)) {
+            if (!g.isPriceAffecting()) optional.put(g.getId(), g);
+        }
+        if (optional.isEmpty()) return Optional.empty();
+        Map<Long, SpecOption> chosen = new HashMap<>();   // groupId -> option
+        Set<Long> seen = new HashSet<>();
+        for (String tok : optionIds.split(",")) {
+            long id;
+            try { id = Long.parseLong(tok.trim()); } catch (NumberFormatException e) { continue; }
+            if (!seen.add(id)) continue;
+            SpecOption o = options.findById(id).orElse(null);
+            if (o == null || !optional.containsKey(o.getSpecGroupId())) continue;
+            chosen.putIfAbsent(o.getSpecGroupId(), o);
+        }
+        if (chosen.isEmpty()) return Optional.empty();
+        List<String> parts = new ArrayList<>();
+        for (SpecGroup g : optional.values().stream()
+                .sorted(java.util.Comparator.comparingInt(SpecGroup::getDisplayOrder)).toList()) {
+            SpecOption o = chosen.get(g.getId());
+            if (o != null) parts.add(g.getName() + ": " + o.getValue());
+        }
+        TreeSet<Long> ids = new TreeSet<>();
+        chosen.values().forEach(o -> ids.add(o.getId()));
+        return Optional.of(new Selection(
+            String.join(",", ids.stream().map(String::valueOf).toList()), String.join(", ", parts)));
     }
 
     /** Resolved line pricing/stock; stock == null means unlimited. */

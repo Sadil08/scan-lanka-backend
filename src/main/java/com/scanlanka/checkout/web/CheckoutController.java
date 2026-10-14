@@ -66,7 +66,9 @@ public class CheckoutController {
 
     private static List<ItemInput> toItems(List<ItemDTO> items) {
         if (items == null) return List.of();
-        return items.stream().map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity())).toList();
+        return items.stream().map(i -> new ItemInput(i.productId(), i.variantId(), i.quantity(),
+            i.optionIds() == null ? null
+                : String.join(",", i.optionIds().stream().filter(java.util.Objects::nonNull).map(String::valueOf).toList()))).toList();
     }
 
     private static DeliveryMethod method(String v) {

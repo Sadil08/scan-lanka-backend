@@ -12,7 +12,7 @@ public final class CheckoutRequests {
 
     private CheckoutRequests() {}
 
-    public record ItemDTO(@NotNull Long productId, Long variantId, @Min(1) int quantity) {}
+    public record ItemDTO(@NotNull Long productId, Long variantId, @Min(1) int quantity, List<Long> optionIds) {}
 
     public record AddressDTO(String street, String city, String province, String postalCode) {}
 

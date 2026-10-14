@@ -17,16 +17,19 @@ public class OrderNotificationComposer {
     private final ReceiptService receipts;
     private final EmailTemplateRenderer templates;
     private final String adminEmail;
+    private final String orderCopyEmail;
     private final String frontendBaseUrl;
 
     public OrderNotificationComposer(NotificationService notifications, ReceiptService receipts,
                                        EmailTemplateRenderer templates,
                                        @Value("${app.notifications.admin-email}") String adminEmail,
+                                       @Value("${app.notifications.order-copy-email:}") String orderCopyEmail,
                                        @Value("${app.frontend-base-url}") String frontendBaseUrl) {
         this.notifications = notifications;
         this.receipts = receipts;
         this.templates = templates;
         this.adminEmail = adminEmail;
+        this.orderCopyEmail = orderCopyEmail;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -38,8 +41,7 @@ public class OrderNotificationComposer {
     public void onOrderPlaced(Order order, List<OrderItem> items) {
         ReceiptModel model = receipts.buildModel(order, items);
         EmailTemplateRenderer.RenderedEmail admin = templates.orderPlacedAdmin(model);
-        notifications.enqueue("ADMIN_ORDER_PLACED", adminEmail, admin.subject(), admin.body(),
-            "placed-admin:" + order.getId());
+        enqueueToStaff("ADMIN_ORDER_PLACED", admin, "placed-admin:" + order.getId());
     }
 
     public void onOrderConfirmed(Order order, List<OrderItem> items) {
@@ -52,8 +54,16 @@ public class OrderNotificationComposer {
             "receipt:" + order.getId());
 
         EmailTemplateRenderer.RenderedEmail dispatch = templates.adminDispatch(model);
-        notifications.enqueue("ADMIN_DISPATCH", adminEmail, dispatch.subject(), dispatch.body(),
-            "dispatch:" + order.getId());
+        enqueueToStaff("ADMIN_DISPATCH", dispatch, "dispatch:" + order.getId());
+    }
+
+    /** Order alerts go to the main admin mailbox and, if configured, a second staff mailbox. */
+    private void enqueueToStaff(String type, EmailTemplateRenderer.RenderedEmail email, String key) {
+        notifications.enqueue(type, adminEmail, email.subject(), email.body(), key);
+        if (orderCopyEmail != null && !orderCopyEmail.isBlank()
+            && !orderCopyEmail.trim().equalsIgnoreCase(adminEmail)) {
+            notifications.enqueue(type, orderCopyEmail.trim(), email.subject(), email.body(), key + ":copy");
+        }
     }
 
     public void resendReceipt(Order order, List<OrderItem> items) {

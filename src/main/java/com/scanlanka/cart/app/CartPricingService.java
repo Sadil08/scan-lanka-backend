@@ -20,10 +20,22 @@ public class CartPricingService {
         this.lookup = lookup;
     }
 
-    public record LineInput(Long productId, Long variantId, int quantity) {}
+    /** {@code optionIds}: comma-separated optional spec option ids from the client (validated here). */
+    public record LineInput(Long productId, Long variantId, int quantity, String optionIds) {
+        public LineInput(Long productId, Long variantId, int quantity) {
+            this(productId, variantId, quantity, null);
+        }
+    }
 
+    /** {@code optionIds}/{@code selection}: canonical validated optional choice and its label ("" when none). */
     public record PricedLine(Long productId, Long variantId, String name, int quantity,
-                             long unitPriceCents, long lineTotalCents, String status) {}
+                             long unitPriceCents, long lineTotalCents, String status,
+                             String optionIds, String selection) {
+        public PricedLine(Long productId, Long variantId, String name, int quantity,
+                          long unitPriceCents, long lineTotalCents, String status) {
+            this(productId, variantId, name, quantity, unitPriceCents, lineTotalCents, status, "", "");
+        }
+    }
 
     public record PricedCart(List<PricedLine> lines, long subtotalCents) {}
 
@@ -36,9 +48,12 @@ public class CartPricingService {
                 lines.add(new PricedLine(in.productId(), in.variantId(), null, in.quantity(), 0, 0, "UNAVAILABLE"));
                 continue;
             }
+            var sel = lookup.resolveSelection(in.productId(), in.optionIds())
+                .orElse(new ProductLookupService.Selection("", ""));
             Integer stock = lp.stock();              // null = unlimited
             if (stock != null && stock <= 0) {
-                lines.add(new PricedLine(in.productId(), in.variantId(), lp.name(), in.quantity(), lp.unitPriceCents(), 0, "OUT_OF_STOCK"));
+                lines.add(new PricedLine(in.productId(), in.variantId(), lp.name(), in.quantity(), lp.unitPriceCents(), 0,
+                    "OUT_OF_STOCK", sel.optionIds(), sel.label()));
                 continue;
             }
             int qty = in.quantity();
@@ -48,7 +63,8 @@ public class CartPricingService {
                 status = "CAPPED";
             }
             long lineTotal = lp.unitPriceCents() * (long) qty;
-            lines.add(new PricedLine(in.productId(), in.variantId(), lp.name(), qty, lp.unitPriceCents(), lineTotal, status));
+            lines.add(new PricedLine(in.productId(), in.variantId(), lp.name(), qty, lp.unitPriceCents(), lineTotal,
+                status, sel.optionIds(), sel.label()));
             subtotal += lineTotal;
         }
         return new PricedCart(lines, subtotal);

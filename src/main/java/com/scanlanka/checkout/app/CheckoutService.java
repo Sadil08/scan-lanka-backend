@@ -61,7 +61,12 @@ public class CheckoutService {
         this.events = events;
     }
 
-    public record ItemInput(Long productId, Long variantId, int quantity) {}
+    /** {@code optionIds}: comma-separated optional spec option ids (e.g. colour); validated in {@link #priceLines}. */
+    public record ItemInput(Long productId, Long variantId, int quantity, String optionIds) {
+        public ItemInput(Long productId, Long variantId, int quantity) {
+            this(productId, variantId, quantity, null);
+        }
+    }
 
     /**
      * @param onlineTotalCents  what is charged online before any card surcharge (lorry: subtotal+delivery+tax;
@@ -98,7 +103,8 @@ public class CheckoutService {
     }
 
     /** A priced, stock-capped, deduped line plus the quote derived from a single pricing pass. */
-    private record PricedLine(OrderLine line, long unitPriceCents, int quantity, long lineTotalCents) {}
+    private record PricedLine(OrderLine line, long unitPriceCents, int quantity, long lineTotalCents,
+                              String selection) {}
     private record QuoteResult(Quote quote, List<PricedLine> lines) {}
 
     /**
@@ -167,7 +173,8 @@ public class CheckoutService {
 
         List<LineSnapshot> snapshots = qr.lines().stream()
             .map(p -> new LineSnapshot(p.line().productId(), p.line().variantId(), p.line().sku(),
-                p.line().name(), p.line().handlingClass(), p.unitPriceCents(), p.quantity(), p.lineTotalCents()))
+                withSelection(p.line().name(), p.selection()), p.line().handlingClass(), p.unitPriceCents(), p.quantity(),
+                p.lineTotalCents()))
             .toList();
 
         boolean lorry = in.deliveryMethod() == DeliveryMethod.COMPANY_LORRY;
@@ -208,7 +215,12 @@ public class CheckoutService {
 
     // --- helpers ---
 
-    private record LineKey(Long productId, Long variantId) {}
+    private record LineKey(Long productId, Long variantId, String optionIds) {}
+
+    /** Order-line display name with the optional choice appended, e.g. "Pin Board — Colour: Red". */
+    private static String withSelection(String name, String selection) {
+        return selection == null || selection.isBlank() ? name : name + " — " + selection;
+    }
 
     /**
      * Consolidate repeated (product, variant) inputs, resolve against the catalog, cap to available stock,
@@ -220,7 +232,9 @@ public class CheckoutService {
         LinkedHashMap<LineKey, Integer> requested = new LinkedHashMap<>();
         for (ItemInput it : items) {
             if (it.productId() == null || it.quantity() < 1) continue;
-            requested.merge(new LineKey(it.productId(), it.variantId()), it.quantity(), Integer::sum);
+            String opts = catalog.resolveSelection(it.productId(), it.optionIds())
+                .map(ProductLookupService.Selection::optionIds).orElse("");
+            requested.merge(new LineKey(it.productId(), it.variantId(), opts), it.quantity(), Integer::sum);
         }
         List<PricedLine> out = new ArrayList<>();
         for (var entry : requested.entrySet()) {
@@ -233,7 +247,9 @@ public class CheckoutService {
             }
             int qty = available == Integer.MAX_VALUE ? entry.getValue() : Math.min(entry.getValue(), available);
             if (qty < 1) continue;
-            out.add(new PricedLine(l, l.unitPriceCents(), qty, l.unitPriceCents() * (long) qty));
+            String label = catalog.resolveSelection(key.productId(), key.optionIds())
+                .map(ProductLookupService.Selection::label).orElse("");
+            out.add(new PricedLine(l, l.unitPriceCents(), qty, l.unitPriceCents() * (long) qty, label));
         }
         return out;
     }

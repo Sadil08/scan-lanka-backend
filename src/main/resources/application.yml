@@ -91,6 +91,7 @@ app:
     dir: ${STORAGE_DIR:./var/media}     # backend image store, outside web root (global/02 §8, T-20)
   notifications:
     admin-email: ${ADMIN_NOTIFY_EMAIL:orders@scanlanka.com}   # dispatch summaries go here
+    order-copy-email: ${ORDER_COPY_EMAIL:scanlanka123@gmail.com}   # second recipient of new-order alerts
     from-email: ${MAIL_FROM:Scan Lanka <no-reply@scanlanka.com>}
     # Real SMTP off by default — dev uses LoggingEmailProvider. Set MAIL_ENABLED=true (+ MAIL_* creds)
     # to activate SmtpEmailProvider, which is @Primary and wins whenever present.

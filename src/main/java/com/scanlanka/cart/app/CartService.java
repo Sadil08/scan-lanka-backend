@@ -38,7 +38,8 @@ public class CartService {
     }
 
     public record CartLineView(Long itemId, Long productId, Long variantId, String name, int quantity,
-                               long unitPriceCents, long lineTotalCents, String status) {}
+                               long unitPriceCents, long lineTotalCents, String status,
+                               String optionIds, String selection) {}
 
     public record CartView(List<CartLineView> lines, long subtotalCents) {}
 
@@ -53,18 +54,19 @@ public class CartService {
     }
 
     @Transactional
-    public CartView addItem(long userId, Long productId, Long variantId, int quantity) {
+    public CartView addItem(long userId, Long productId, Long variantId, int quantity, String optionIds) {
         Cart cart = cartFor(userId);
         LinePricing lp = lookup.resolveLine(productId, variantId)
             .orElseThrow(() -> badRequest("INVALID_PRODUCT"));
-        CartItem existing = items.findByCartIdAndProductIdAndVariantId(cart.getId(), productId, variantId).orElse(null);
+        String opts = canonicalOptions(productId, optionIds);
+        CartItem existing = items.findByCartIdAndProductIdAndVariantIdAndOptionIds(cart.getId(), productId, variantId, opts).orElse(null);
         int desired = (existing != null ? existing.getQuantity() : 0) + quantity;
         assertWithinStock(lp, desired);
         if (existing != null) {
             existing.setQuantity(desired);
             items.save(existing);
         } else {
-            items.save(new CartItem(cart.getId(), productId, variantId, quantity));
+            items.save(new CartItem(cart.getId(), productId, variantId, quantity, opts));
         }
         return toView(cart);
     }
@@ -97,7 +99,8 @@ public class CartService {
         for (LineInput in : guestItems) {
             LinePricing lp = lookup.resolveLine(in.productId(), in.variantId()).orElse(null);
             if (lp == null) continue;
-            CartItem existing = items.findByCartIdAndProductIdAndVariantId(cart.getId(), in.productId(), in.variantId()).orElse(null);
+            String opts = canonicalOptions(in.productId(), in.optionIds());
+            CartItem existing = items.findByCartIdAndProductIdAndVariantIdAndOptionIds(cart.getId(), in.productId(), in.variantId(), opts).orElse(null);
             int merged = (existing != null ? existing.getQuantity() : 0) + in.quantity();
             if (lp.stock() != null) merged = Math.min(merged, lp.stock()); // sum then clamp (Q-2)
             if (merged < 1) continue;
@@ -105,13 +108,18 @@ public class CartService {
                 existing.setQuantity(merged);
                 items.save(existing);
             } else {
-                items.save(new CartItem(cart.getId(), in.productId(), in.variantId(), merged));
+                items.save(new CartItem(cart.getId(), in.productId(), in.variantId(), merged, opts));
             }
         }
         return toView(cart);
     }
 
     // --- helpers ---
+
+    private String canonicalOptions(Long productId, String optionIds) {
+        return lookup.resolveSelection(productId, optionIds)
+            .map(com.scanlanka.catalog.app.ProductLookupService.Selection::optionIds).orElse("");
+    }
 
     private Cart cartFor(long userId) {
         return carts.findByCustomerId(userId).orElseGet(() -> carts.save(new Cart(userId)));
@@ -126,14 +134,14 @@ public class CartService {
     private CartView toView(Cart cart) {
         List<CartItem> cartItems = items.findByCartId(cart.getId());
         List<LineInput> inputs = cartItems.stream()
-            .map(i -> new LineInput(i.getProductId(), i.getVariantId(), i.getQuantity())).toList();
+            .map(i -> new LineInput(i.getProductId(), i.getVariantId(), i.getQuantity(), i.getOptionIds())).toList();
         PricedCart priced = pricing.price(inputs);
         List<CartLineView> lines = new ArrayList<>();
         for (int i = 0; i < cartItems.size(); i++) {
             CartItem it = cartItems.get(i);
             PricedLine pl = priced.lines().get(i);
             lines.add(new CartLineView(it.getId(), pl.productId(), pl.variantId(), pl.name(),
-                pl.quantity(), pl.unitPriceCents(), pl.lineTotalCents(), pl.status()));
+                pl.quantity(), pl.unitPriceCents(), pl.lineTotalCents(), pl.status(), pl.optionIds(), pl.selection()));
         }
         return new CartView(lines, priced.subtotalCents());
     }

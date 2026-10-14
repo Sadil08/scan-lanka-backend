@@ -28,19 +28,29 @@ public class CartItem {
     @Column(nullable = false)
     private int quantity;
 
+    /** Canonical optional-spec choice (e.g. colour), "" when none. Part of the line identity. */
+    @Column(name = "option_ids", nullable = false)
+    private String optionIds = "";
+
     protected CartItem() {}
 
     public CartItem(Long cartId, Long productId, Long variantId, int quantity) {
+        this(cartId, productId, variantId, quantity, "");
+    }
+
+    public CartItem(Long cartId, Long productId, Long variantId, int quantity, String optionIds) {
         this.cartId = cartId;
         this.productId = productId;
         this.variantId = variantId;
         this.quantity = quantity;
+        this.optionIds = optionIds == null ? "" : optionIds;
     }
 
     public Long getId() { return id; }
     public Long getCartId() { return cartId; }
     public Long getProductId() { return productId; }
     public Long getVariantId() { return variantId; }
+    public String getOptionIds() { return optionIds; }
     public int getQuantity() { return quantity; }
     public void setQuantity(int quantity) { this.quantity = quantity; }
 }

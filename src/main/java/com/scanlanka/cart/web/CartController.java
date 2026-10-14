@@ -64,7 +64,7 @@ public class CartController {
                         @Valid @RequestBody AddItemRequest req) {
         long userId = requireUser(principal);
         accountFeatures.requireVerifiedEmail(userId);
-        return cart.addItem(userId, req.productId(), req.variantId(), req.quantity());
+        return cart.addItem(userId, req.productId(), req.variantId(), req.quantity(), joinIds(req.optionIds()));
     }
 
     @PatchMapping("/items/{id}")
@@ -97,7 +97,11 @@ public class CartController {
 
     private static List<LineInput> toInputs(List<ItemDTO> items) {
         if (items == null) return List.of();
-        return items.stream().map(i -> new LineInput(i.productId(), i.variantId(), i.quantity())).toList();
+        return items.stream().map(i -> new LineInput(i.productId(), i.variantId(), i.quantity(), joinIds(i.optionIds()))).toList();
+    }
+
+    static String joinIds(List<Long> ids) {
+        return ids == null ? null : String.join(",", ids.stream().filter(java.util.Objects::nonNull).map(String::valueOf).toList());
     }
 
     private static String clientIp(HttpServletRequest request) {
