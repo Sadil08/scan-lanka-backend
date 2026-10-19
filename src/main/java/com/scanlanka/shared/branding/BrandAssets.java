@@ -26,7 +26,7 @@ public final class BrandAssets {
 
     public static final String COMPANY_NAME = "Scan Lanka Trading Co. (Pvt) Ltd";
     public static final String COMPANY_ADDRESS = "No 385, Kaduwela Road, Malabe, Sri Lanka";
-    public static final String COMPANY_PHONE = "071 781 7447";
+    public static final String COMPANY_PHONE = "071 977 7447";
     public static final String COMPANY_EMAIL = "scanlankagroup.info@gmail.com";
 
     /** @deprecated Prefer storefront HTTPS {@code /logo.png} in email HTML. Kept for any legacy CID use. */

@@ -36,11 +36,11 @@ class ContactIT extends AbstractIntegrationTest {
 
         mvc.perform(get("/api/contact/whatsapp").param("country", "LK"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.number").value("0717817447"));
+            .andExpect(jsonPath("$.number").value("0719777447"));
 
         mvc.perform(get("/api/contact/whatsapp").param("country", "US"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.number").value("0717817447"));
+            .andExpect(jsonPath("$.number").value("0719777447"));
 
         Cookie admin = adminCookie("contact-admin@scanlanka.lk");
         mvc.perform(get("/api/admin/inquiries").cookie(admin))
