@@ -32,6 +32,7 @@ class ReceiptIdempotencyIT extends AbstractIntegrationTest {
     static void payhere(DynamicPropertyRegistry r) {
         r.add("app.payhere.merchant-id", () -> MID);
         r.add("app.payhere.merchant-secret", () -> SECRET);
+        r.add("app.notifications.order-copy-email", () -> "");
     }
 
     @Autowired MockMvc mvc;
